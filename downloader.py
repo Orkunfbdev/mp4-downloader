@@ -213,6 +213,12 @@ def download_single_video(url: str):
         },
     }
     
+    try:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+        ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+    except Exception:
+        pass
+    
     if ffmpeg_exe:
         ydl_opts['ffmpeg_location'] = ffmpeg_exe
 
@@ -336,6 +342,11 @@ def download_multiple_videos(urls: list[str]):
                 'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
             },
         }
+        try:
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+            opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+        except Exception:
+            pass
         if ffmpeg_exe:
             opts['ffmpeg_location'] = ffmpeg_exe
         if "tiktok.com" in url.lower() or "instagram.com" in url.lower() or "twitter.com" in url.lower() or "x.com" in url.lower():
