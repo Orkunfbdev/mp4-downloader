@@ -48,7 +48,11 @@ def get_ffmpeg_path():
 console = Console(force_terminal=True, legacy_windows=False)
 
 # Dizinler
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+
 DOWNLOAD_DIR = Path.home() / "Desktop"
 if not DOWNLOAD_DIR.exists():
     DOWNLOAD_DIR = Path.home() / "Masaüstü"

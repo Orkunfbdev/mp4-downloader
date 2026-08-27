@@ -23,3 +23,8 @@ indirilenler/
 *.log
 .DS_Store
 Thumbs.db
+
+# Build ve Exe
+build/
+dist/
+*.spec
