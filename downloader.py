@@ -257,9 +257,10 @@ def download_single_video(url: str):
     )
     
     task_id = None
+    last_update_time = 0.0
     
     def yt_progress_hook(d):
-        nonlocal task_id
+        nonlocal task_id, last_update_time
         if d['status'] == 'downloading':
             total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
             downloaded = d.get('downloaded_bytes', 0)
@@ -271,7 +272,10 @@ def download_single_video(url: str):
                 task_id = progress.add_task("download", total=total_bytes, filename=filename)
                 progress.start()
             
-            if total_bytes > 0:
+            now = time.time()
+            # 16 FPS sınır (her 0.06s'de bir çizim), CPU %100 yükünü ve terminal donmasını engeller
+            if total_bytes > 0 and (now - last_update_time > 0.06 or downloaded >= total_bytes):
+                last_update_time = now
                 progress.update(task_id, total=total_bytes, completed=downloaded, filename=filename)
         elif d['status'] == 'finished':
             if task_id is not None:
@@ -394,6 +398,7 @@ def download_multiple_videos(urls: list[str]):
     )
     
     ffmpeg_exe = get_ffmpeg_path()
+    last_update_times = {}
     
     def worker(url: str):
         platform, color = detect_platform(url)
@@ -409,7 +414,11 @@ def download_multiple_videos(urls: list[str]):
                 tot = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
                 done = d.get('downloaded_bytes', 0)
                 if tot > 0:
-                    multi_progress.update(task_id, total=tot, completed=done, status="⬇ İndiriliyor")
+                    now = time.time()
+                    # 12 FPS çoklu indirme sınırı, konsol kilitlenmesini engeller
+                    if now - last_update_times.get(task_id, 0) > 0.08 or done >= tot:
+                        last_update_times[task_id] = now
+                        multi_progress.update(task_id, total=tot, completed=done, status="⬇ İndiriliyor")
             elif d['status'] == 'finished':
                 multi_progress.update(task_id, status="🔄 İşleniyor...")
         
