@@ -11,25 +11,29 @@
 
 </div>
 
-## 🚀 Kurulum (İlk Kez İndirenler İçin)
+## 🚀 Çalıştırma
 
-Projeyi indirdikten sonra klasörün içinde tek bir komut çalıştırmanız (veya `kur.bat` dosyasına çift tıklamanız) yeterlidir:
+WinRAR veya ZIP ile indirip çıkardıktan sonra terminalde klasörün içindeyken:
 
 ```bash
-pip install -e .
+pip install -r requirements.txt
+python downloader.py
 ```
-*(veya Windows için: `kur.bat` dosyasını çalıştırın)*
+
+Global komut olarak kullanmak isterseniz:
+```bash
+pip install .
+```
+*(Kurduktan sonra bilgisayarın her yerinden `orkunfb indir` yazarak çalıştırabilirsiniz)*
 
 ---
 
-## ⚡ Kullanım (Tek Komutla Başlat)
-
-Kurulumu yaptıktan sonra bilgisayarınızda **hangi klasörde olursanız olun** direkt şu komutu yazarak başlatabilirsiniz:
+## ⚡ Kullanım
 
 ```bash
 orkunfb indir
 ```
-*(veya kısaca `indir` / `mp4`)*
+*(veya `python downloader.py`)*
 
 Doğrudan link ile indirmek için:
 ```bash
