@@ -11,9 +11,20 @@
 
 </div>
 
-## ⚡ Hızlı Kullanım (Tek Komutla Başlat)
+## 🚀 Kurulum (İlk Kez İndirenler İçin)
 
-Terminalde hangi klasörde olursanız olun direkt şu komutu yazarak başlatabilirsiniz:
+Projeyi indirdikten sonra klasörün içinde tek bir komut çalıştırmanız (veya `kur.bat` dosyasına çift tıklamanız) yeterlidir:
+
+```bash
+pip install -e .
+```
+*(veya Windows için: `kur.bat` dosyasını çalıştırın)*
+
+---
+
+## ⚡ Kullanım (Tek Komutla Başlat)
+
+Kurulumu yaptıktan sonra bilgisayarınızda **hangi klasörde olursanız olun** direkt şu komutu yazarak başlatabilirsiniz:
 
 ```bash
 orkunfb indir
@@ -33,6 +44,7 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 2. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
 3. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
 4. **📁 Doğrudan Masaüstü Kaydı:** İndirilen MP4 videoları doğrudan **Masaüstünüze** kaydedilir.
+5. **💬 Otomatik Türkçe Altyazı Gömme:** Altyazılı videolarda Türkçe altyazıyı otomatik MP4 içine gömer.
 
 ---
 
@@ -41,6 +53,7 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 - **Video İndirme:** Link(ler)i yapıştırıp `Enter`'a basın.
 - **Masaüstünü Açma:** `klasor` veya `open`
 - **Ekranı Temizleme:** `cls` veya `temizle`
+- **Yardım & Anime/Film Rehberi:** `yardim`
 - **Çıkış:** `q` veya `cikis`
 
 ---
@@ -50,4 +63,4 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 - **TikTok** (Filigransız / HD)
 - **Instagram** (Reels, Post, Hikaye)
 - **Twitter / X** (Tüm video paylaşımları)
-- **Facebook, Reddit, Twitch, Pinterest** ve diğer 1000+ site.
+- **Facebook, Reddit, Twitch, Pinterest, Anime ve Dizi/Film Siteleri** ve diğer 1000+ site.
