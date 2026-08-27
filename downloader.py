@@ -143,12 +143,10 @@ def display_banner():
     panel = Panel(
         Align.center(content),
         title="[bold cyan]🎬 MP4 DOWNLOADER[/bold cyan]",
-        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
         border_style="bright_blue",
         padding=(1, 1)
     )
     console.print(panel)
-    console.print(f"[dim]📁 Kayıt Yeri: [bold underline]{DOWNLOAD_DIR}[/bold underline][/dim]\n")
 
 def download_single_video(url: str):
     """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
@@ -403,7 +401,7 @@ def main():
 
     while True:
         try:
-            user_input = Prompt.ask("[bold yellow]📥 Video linki yapıştırın[/bold yellow] [dim]('q'=çıkış, 'klasor'=masaüstü, 'cls'=temizle)[/dim]").strip()
+            user_input = Prompt.ask("\n[bold yellow]📥 Video linki yapıştırın[/bold yellow]").strip()
             
             if not user_input:
                 continue
