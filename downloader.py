@@ -240,8 +240,7 @@ def download_single_video(url: str):
         'overwrites': True,
         'nocheckcertificate': True,
         'writesubtitles': True,
-        'writeautomaticsub': True,
-        'subtitleslangs': ['tr', 'tr-.*', 'tur', 'Turkish', 'en', 'all'],
+        'subtitleslangs': ['tr', 'en'],
         'postprocessors': [
             {'key': 'FFmpegEmbedSubtitle', 'already_have_subtitle': False},
         ],
@@ -377,8 +376,7 @@ def download_multiple_videos(urls: list[str]):
             'overwrites': True,
             'nocheckcertificate': True,
             'writesubtitles': True,
-            'writeautomaticsub': True,
-            'subtitleslangs': ['tr', 'tr-.*', 'tur', 'Turkish', 'en', 'all'],
+            'subtitleslangs': ['tr', 'en'],
             'postprocessors': [
                 {'key': 'FFmpegEmbedSubtitle', 'already_have_subtitle': False},
             ],
