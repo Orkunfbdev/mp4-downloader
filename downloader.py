@@ -100,13 +100,19 @@ def open_download_folder():
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
-def get_obito_ansi_image(width=34, height=18):
-    """Obito resmini gerçek renkli ANSI metnine dönüştürür."""
+def get_obito_ansi_image(width=46, height=26):
+    """Obito resmini yüksek çözünürlük, keskinlik ve gerçek RGB renklerle ANSI metnine dönüştürür."""
     if not HAS_PIL or not OBITO_IMG_PATH.exists():
         return None
     try:
+        from PIL import ImageEnhance, ImageFilter
         img = Image.open(OBITO_IMG_PATH).convert('RGB')
+        # Görüntü kalitesini, kontrastını ve keskinliğini artır
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+        img = ImageEnhance.Sharpness(img).enhance(2.2)
+        img = img.filter(ImageFilter.SHARPEN)
         img = img.resize((width, height), Image.Resampling.LANCZOS)
+        
         lines = []
         for y in range(0, height, 2):
             line = ""
@@ -120,16 +126,16 @@ def get_obito_ansi_image(width=34, height=18):
         return None
 
 def display_banner():
-    obito_img_text = get_obito_ansi_image(width=32, height=16)
+    obito_img_text = get_obito_ansi_image(width=46, height=26)
     
     banner_text = Text()
-    banner_text.append(" ⚔️  OBITO UCHIHA  ⚔️\n", style="bold red")
-    banner_text.append(" « KAMUI MP4 DOWNLOADER »\n", style="bold yellow")
-    banner_text.append(" ──────────────────────────────────\n", style="dim red")
-    banner_text.append(" ❝ Bu dünyadaki tüm videoları\n", style="italic white")
-    banner_text.append("    Kamui ile Masaüstüne çek! ❞\n\n", style="italic white")
-    banner_text.append(" 🍥 YouTube • TikTok • Twitter • Insta\n", style="bold cyan")
-    banner_text.append(" ⚡ Eşzamanlı Çoklu İndirme Devrede", style="bold green")
+    banner_text.append("\n  ⚔️  OBITO UCHIHA  ⚔️\n", style="bold red")
+    banner_text.append("  « KAMUI MP4 DOWNLOADER »\n", style="bold yellow")
+    banner_text.append("  ───────────────────────────────────\n", style="dim red")
+    banner_text.append("  ❝ Bu dünyadaki tüm videoları\n", style="italic bright_white")
+    banner_text.append("     Kamui ile Masaüstüne çek! ❞\n\n", style="italic bright_white")
+    banner_text.append("  🍥 YouTube • TikTok • Twitter • Insta\n", style="bold cyan")
+    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Devrede\n", style="bold green")
     
     if obito_img_text:
         grid = Table.grid(padding=(0, 2))
@@ -143,7 +149,7 @@ def display_banner():
         title="[bold red]🍥 NARUTO SHIPPUDEN • OBITO UCHIHA EDITION 🍥[/bold red]",
         subtitle="[dim red]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim red]",
         border_style="bright_red",
-        padding=(1, 2)
+        padding=(1, 1)
     )
     console.print(panel)
     console.print(f"[dim]📁 Kamui Hedefi (Masaüstü): [bold underline red]{DOWNLOAD_DIR}[/bold underline red][/dim]\n")
