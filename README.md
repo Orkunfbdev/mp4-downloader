@@ -1,8 +1,17 @@
-# 🎬 MP4 Downloader (Tüm Platformlar İçin Video İndirici)
+<div align="center">
 
-YouTube, TikTok, Twitter (X), Instagram, Facebook, Reddit ve 1000+ web sitesinden **tek bir komutla** ve **aynı anda birden fazla** video indirebilen modern CLI uygulaması.
+# 🍥 Obito Uchiha • Kamui MP4 Downloader 🍥
+
+<img src="assets/obito.jpg" width="220" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(255,0,0,0.4);" />
+
+### ❝ *Bu dünyadaki tüm videoları Kamui boyutuyla Masaüstüne çek!* ❞
+
+**YouTube • TikTok • Twitter (X) • Instagram • 1000+ Web Sitesi**  
+*Eşzamanlı Çoklu İndirme & Yüksek Kalite MP4*
 
 ---
+
+</div>
 
 ## ⚡ Hızlı Kullanım (Tek Komutla Başlat)
 
@@ -20,16 +29,16 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 
 ---
 
-## 🌟 Yeni Özellikler
+## 🌟 Özellikler
 
-1. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Bir video inerken beklemenize gerek yok! İkinci, üçüncü veya dördüncü linki yapıştırın, hepsi aynı anda paralel insin.
-2. **🌍 Global Komut (`indir` / `mp4`):** `cd` yazıp klasöre gitme derdine son! Herhangi bir terminalde `indir` yazarak anında açabilirsiniz.
-3. **📁 Temiz Masaüstü Entegrasyonu:** Geçici parçalar sistem önbelleğinde birleştirilir, yalnızca bitmiş `.mp4` doğrudan **Masaüstünüze** kaydedilir.
-4. **📋 Toplu Link Desteği:** Birden fazla linki aralarında boşluk bırakarak tek seferde yapıştırabilirsiniz.
+1. **🍥 Obito Uchiha Temalı Özel Terminal:** Terminal açıldığında Obito portresi ve Kamui renkleriyle görsel şölen.
+2. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
+3. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
+4. **📁 Temiz Masaüstü Entegrasyonu:** Geçici dosyalar sistem önbelleğinde işlenir, bitmiş `.mp4` doğrudan **Masaüstüne** iner.
 
 ---
 
-## 📌 Kullanım & Kısayollar
+## 📌 Kısayollar
 
 - **Video İndirme:** Link(ler)i yapıştırıp `Enter`'a basın.
 - **Masaüstünü Açma:** `klasor` veya `open`

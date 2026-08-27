@@ -27,6 +27,13 @@ except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
     sys.exit(1)
 
+# Pillow kontrolü
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 # FFmpeg yolunu belirle
 def get_ffmpeg_path():
     try:
@@ -40,21 +47,18 @@ def get_ffmpeg_path():
 
 console = Console(force_terminal=True, legacy_windows=False)
 
-# İndirme klasörü (Masaüstü / Desktop)
-def get_desktop_dir():
-    desktop = Path.home() / "Desktop"
-    if desktop.exists():
-        return desktop
-    desktop_tr = Path.home() / "Masaüstü"
-    if desktop_tr.exists():
-        return desktop_tr
-    return Path.home() / "Desktop"
-
-DOWNLOAD_DIR = get_desktop_dir()
+# Dizinler
+BASE_DIR = Path(__file__).resolve().parent
+DOWNLOAD_DIR = Path.home() / "Desktop"
+if not DOWNLOAD_DIR.exists():
+    DOWNLOAD_DIR = Path.home() / "Masaüstü"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 TEMP_DIR = Path(os.environ.get('TEMP', str(DOWNLOAD_DIR))) / "mp4_downloader_temp"
 TEMP_DIR.mkdir(exist_ok=True)
+
+ASSETS_DIR = BASE_DIR / "assets"
+OBITO_IMG_PATH = ASSETS_DIR / "obito.jpg"
 
 def detect_platform(url: str) -> tuple[str, str]:
     """Linkten platformu ve uygun renk bilgisini döner."""
@@ -96,27 +100,50 @@ def open_download_folder():
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
+def get_obito_ansi_image(width=34, height=18):
+    """Obito resmini gerçek renkli ANSI metnine dönüştürür."""
+    if not HAS_PIL or not OBITO_IMG_PATH.exists():
+        return None
+    try:
+        img = Image.open(OBITO_IMG_PATH).convert('RGB')
+        img = img.resize((width, height), Image.Resampling.LANCZOS)
+        lines = []
+        for y in range(0, height, 2):
+            line = ""
+            for x in range(width):
+                r1, g1, b1 = img.getpixel((x, y))
+                r2, g2, b2 = img.getpixel((x, y+1)) if y+1 < height else (0, 0, 0)
+                line += f"\x1b[38;2;{r1};{g1};{b1}m\x1b[48;2;{r2};{g2};{b2}m▀\x1b[0m"
+            lines.append(line)
+        return Text.from_ansi("\n".join(lines))
+    except Exception:
+        return None
+
 def display_banner():
-    banner_text = Text()
-    banner_text.append(r"""
-        .---.            .---.
-       /     \  KAMUI   /     \       ⚔️  OBITO UCHIHA  ⚔️
-      |  (o)  |--------|  (•)  |   « Ultimate MP4 Downloader »
-       \     /  VORTEX  \     /     
-        `---'            `---'
-""", style="bold red")
-    banner_text.append("  ═════════════════════════════════════════════════════════════\n", style="bold red")
-    banner_text.append("   👁️  [ KAMUI MP4 DOWNLOADER • SHARINGAN x RINNEGAN ]  👁️    \n", style="bold yellow")
-    banner_text.append("   ❝ Bu dünyadaki tüm videoları Kamui boyutuyla Masaüstüne çek! ❞  \n", style="italic white")
-    banner_text.append("     YouTube • TikTok • Twitter (X) • Instagram • 1000+ Site   \n", style="bold cyan")
-    banner_text.append("  ═════════════════════════════════════════════════════════════", style="bold red")
+    obito_img_text = get_obito_ansi_image(width=32, height=16)
     
+    banner_text = Text()
+    banner_text.append(" ⚔️  OBITO UCHIHA  ⚔️\n", style="bold red")
+    banner_text.append(" « KAMUI MP4 DOWNLOADER »\n", style="bold yellow")
+    banner_text.append(" ──────────────────────────────────\n", style="dim red")
+    banner_text.append(" ❝ Bu dünyadaki tüm videoları\n", style="italic white")
+    banner_text.append("    Kamui ile Masaüstüne çek! ❞\n\n", style="italic white")
+    banner_text.append(" 🍥 YouTube • TikTok • Twitter • Insta\n", style="bold cyan")
+    banner_text.append(" ⚡ Eşzamanlı Çoklu İndirme Devrede", style="bold green")
+    
+    if obito_img_text:
+        grid = Table.grid(padding=(0, 2))
+        grid.add_row(obito_img_text, banner_text)
+        content = grid
+    else:
+        content = banner_text
+        
     panel = Panel(
-        Align.center(banner_text),
+        Align.center(content),
         title="[bold red]🍥 NARUTO SHIPPUDEN • OBITO UCHIHA EDITION 🍥[/bold red]",
         subtitle="[dim red]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim red]",
         border_style="bright_red",
-        padding=(0, 1)
+        padding=(1, 2)
     )
     console.print(panel)
     console.print(f"[dim]📁 Kamui Hedefi (Masaüstü): [bold underline red]{DOWNLOAD_DIR}[/bold underline red][/dim]\n")
