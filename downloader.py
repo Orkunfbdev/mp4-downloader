@@ -27,38 +27,44 @@ except ImportError:
     sys.exit(1)
 
 # FFmpeg yolunu belirle ve önbellekle
+# FFmpeg yolunu belirle ve arkaplanda önbellekle
 _CACHED_FFMPEG_PATH = None
-def get_ffmpeg_path():
+
+def _resolve_ffmpeg():
     global _CACHED_FFMPEG_PATH
     if _CACHED_FFMPEG_PATH is not None:
-        return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
-    
-    # 1. PATH kontrolü (< 0.1ms)
+        return
     import shutil
     w = shutil.which("ffmpeg")
     if w:
         _CACHED_FFMPEG_PATH = w
-        return _CACHED_FFMPEG_PATH
-        
-    # 2. Yerel dizin kontrolü
+        return
     for p in [BASE_DIR / "ffmpeg.exe", Path.cwd() / "ffmpeg.exe"]:
         if p.exists():
             _CACHED_FFMPEG_PATH = str(p)
-            return _CACHED_FFMPEG_PATH
-            
-    # 3. imageio_ffmpeg yedek kontrolü
+            return
     try:
         import imageio_ffmpeg
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         if os.path.exists(ffmpeg_exe):
             _CACHED_FFMPEG_PATH = ffmpeg_exe
-            return _CACHED_FFMPEG_PATH
+            return
     except Exception:
         pass
     _CACHED_FFMPEG_PATH = ""
-    return None
 
-console = Console(force_terminal=True, legacy_windows=False)
+def get_ffmpeg_path():
+    global _CACHED_FFMPEG_PATH
+    if _CACHED_FFMPEG_PATH is None:
+        _resolve_ffmpeg()
+    return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
+
+def start_background_ffmpeg_check():
+    import threading
+    t = threading.Thread(target=_resolve_ffmpeg, daemon=True)
+    t.start()
+
+console = Console(force_terminal=True, highlight=False)
 
 # Dizinler
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -325,30 +331,15 @@ def download_single_video(url: str):
     try:
         import yt_dlp
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
+            download_result = ydl.extract_info(url, download=True)
+            if not download_result:
                 console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
                 return
             
-            title = info.get('title', 'Bilinmeyen Video')
-            uploader = info.get('uploader') or info.get('channel') or info.get('creator') or 'Bilinmiyor'
-            duration = format_duration(info.get('duration'))
-            resolution = info.get('resolution') or f"{info.get('width', '?')}x{info.get('height', '?')}"
-            
-            # Bilgi Kartı
-            table = Table(title="📹 Video Detayları", show_header=False, border_style="blue", padding=(0, 1))
-            table.add_column("Özellik", style="bold yellow", width=14)
-            table.add_column("Değer", style="white")
-            
-            table.add_row("Başlık", str(title))
-            table.add_row("Kanal / Sahip", str(uploader))
-            table.add_row("Süre", str(duration))
-            table.add_row("Çözünürlük", str(resolution))
-            
-            console.print(table)
-            console.print("[bold green]⬇ İndirme işlemi başlatılıyor...[/bold green]\n")
-            
-            download_result = ydl.extract_info(url, download=True)
+            title = download_result.get('title', 'Bilinmeyen Video')
+            uploader = download_result.get('uploader') or download_result.get('channel') or download_result.get('creator') or 'Bilinmiyor'
+            duration = format_duration(download_result.get('duration'))
+            resolution = download_result.get('resolution') or f"{download_result.get('width', '?')}x{download_result.get('height', '?')}"
             
             if 'requested_downloads' in download_result and download_result['requested_downloads']:
                 saved_file_name = download_result['requested_downloads'][0].get('filepath', '')
@@ -359,6 +350,8 @@ def download_single_video(url: str):
 
         console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
         console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
+        console.print(f"[bold white]Başlık:[/bold white] [bold yellow]{title}[/bold yellow]")
+        console.print(f"[bold white]Kanal / Sahip:[/bold white] [white]{uploader}[/white] • [bold white]Süre:[/bold white] [white]{duration}[/white] • [bold white]Çözünürlük:[/bold white] [cyan]{resolution}[/cyan]")
         if saved_file_name and os.path.exists(saved_file_name):
             file_size_mb = os.path.getsize(saved_file_name) / (1024 * 1024)
             console.print(f"[bold white]Dosya:[/bold white] [cyan]{os.path.basename(saved_file_name)}[/cyan] ({file_size_mb:.2f} MB)")
@@ -453,16 +446,15 @@ def download_multiple_videos(urls: list[str]):
         try:
             import yt_dlp
             with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'Video') if info else 'Video'
+                download_result = ydl.extract_info(url, download=True)
+                title = download_result.get('title', 'Video') if download_result else 'Video'
                 short_title = title if len(title) <= 25 else title[:22] + "..."
                 multi_progress.update(
                     task_id,
                     description=f"[{color}][{platform}][/{color}] {short_title}",
-                    status="⬇ İndiriliyor..."
+                    status="[bold green]✓ Tamamlandı[/bold green]",
+                    completed=multi_progress.tasks[task_id].total or 100
                 )
-                ydl.extract_info(url, download=True)
-                multi_progress.update(task_id, status="[bold green]✓ Tamamlandı[/bold green]", completed=multi_progress.tasks[task_id].total or 100)
         except Exception as e:
             multi_progress.update(task_id, status="[bold red]❌ Hata[/bold red]", completed=100)
     
@@ -500,14 +492,9 @@ def main():
                 download_multiple_videos(valid_urls)
             return
 
+    start_background_ffmpeg_check()
     os.system('cls' if os.name == 'nt' else 'clear')
     display_banner()
-    
-    ffmpeg_exe = get_ffmpeg_path()
-    if not ffmpeg_exe:
-        console.print("[yellow]⚠️ Uyarı: FFmpeg motoru bulunamadı. Bazı 1080p/4K videolarda ses birleştirme sınırlı olabilir.[/yellow]\n")
-    else:
-        console.print("[green]✓ FFmpeg video motoru aktif.[/green]\n")
 
     while True:
         try:
