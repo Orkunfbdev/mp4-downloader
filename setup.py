@@ -10,7 +10,6 @@ setup(
         "yt-dlp>=2025.1.15",
         "rich>=13.7.0",
         "imageio-ffmpeg>=0.5.1",
-        "pillow>=10.0.0",
         "curl-cffi>=0.7.0",
     ],
     entry_points={

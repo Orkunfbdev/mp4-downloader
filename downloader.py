@@ -26,19 +26,27 @@ except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
     sys.exit(1)
 
-# Pillow kontrolü
-try:
-    from PIL import Image, ImageEnhance, ImageFilter
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-
 # FFmpeg yolunu belirle ve önbellekle
 _CACHED_FFMPEG_PATH = None
 def get_ffmpeg_path():
     global _CACHED_FFMPEG_PATH
     if _CACHED_FFMPEG_PATH is not None:
+        return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
+    
+    # 1. PATH kontrolü (< 0.1ms)
+    import shutil
+    w = shutil.which("ffmpeg")
+    if w:
+        _CACHED_FFMPEG_PATH = w
         return _CACHED_FFMPEG_PATH
+        
+    # 2. Yerel dizin kontrolü
+    for p in [BASE_DIR / "ffmpeg.exe", Path.cwd() / "ffmpeg.exe"]:
+        if p.exists():
+            _CACHED_FFMPEG_PATH = str(p)
+            return _CACHED_FFMPEG_PATH
+            
+    # 3. imageio_ffmpeg yedek kontrolü
     try:
         import imageio_ffmpeg
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
@@ -65,10 +73,6 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 TEMP_DIR = Path(os.environ.get('TEMP', str(DOWNLOAD_DIR))) / "mp4_downloader_temp"
 TEMP_DIR.mkdir(exist_ok=True)
-
-ASSETS_DIR = BASE_DIR / "assets"
-OBITO_IMG_PATH = ASSETS_DIR / "obito.jpg"
-_CACHED_OBITO_TEXT = None
 
 def detect_platform(url: str) -> tuple[str, str]:
     """Linkten platformu ve uygun renk bilgisini döner."""
@@ -110,36 +114,76 @@ def open_download_folder():
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
-def get_obito_ansi_image(width=44, height=24):
-    """Obito resmini yüksek çözünürlük ve gerçek RGB renklerle ANSI metnine dönüştürür (önbellekli)."""
+# Pre-rendered & compressed Obito pixel art (Pillow gerektirmez, 0.00s açılış)
+OBITO_B64 = (
+    "eNqtW+vR47oN/Z8WbhME3xyVkhpuD6kiBaaSACBFAiAt2ZvMeHfG+iA+QOAcPOi//hnq5S8IV0hXyH//9c/I390V8FH4+z///tdf"
+    "QwQfRSmS+HsSIvkKICR8uyJ+r1rCC4kYr+SuKMcAP2YeIgmuFK9YhAj+F9MVl0i6UrminCflK1Uce4pkFmlSJNJTHPgWub8/j8Lf"
+    "tQgPfIuUXSTxwPVpLWl/ZAcOmx7s8mIjbcWwD7zmRnmS2vVQpTbzy1r4u95kMapSy+3Lq3zY8bRvob02B/6oLbucW8Hnt7aTaPLI"
+    "065TO/Zx+mfbSked1qetnyeq7xMVM1F5P7x60rF+9EmnJ6n2cqR1t5Wy24rUDgIDWnP007ThKviRoyBk+XL5NEUCQhTBVNBQURp+"
+    "bqFMANPwXS9BCd/0mR8OsZIQ3gD/ZSlWUATF4lx4iSjijBjuFgCn8EE4HUChObqY+/sfAlMl2BEMF42YUBmZ5zbbAOolQTCLO117"
+    "pCdqg7hqAsy5bsRteqMaFEgGpA4Wm390jYPd5x0o0i7y5ho3vNx7dldGolDQx1Jxcg3+PdM+H0ALrQwNL0g8QKvqj+4jz1cJOJa0"
+    "i0SfNE8IyMgS2ZTalKMVxSlVy1VxrPiAxLScYPizXJlOZlpDuirat+LpiBaJVgUQ54pwybwqxdYtXy1eFaZUQ6ttZM7KE2lFwhMh"
+    "oiXjygDU7oCVPXdX2F+VmsaRLe4v7OLR6AjEKOBwRQ7XaI8+yaOvQyWfDYiYB3bmUQgdj5aqzBD4BLPEv9vGHui07Ix7pNOfCeTM"
+    "gs3Ac3mB58Pc5UOU8+rXb077xdyRXDmp0M4wNJ43OLRBt5CfcT7IBaPxARGCsAG/hZoFbR3NG9R0rVxNrqiQyRMdzM3n3P0rKLFI"
+    "k6HYXBXTRSJf2VCf0Fq4FAbNpRBJCUwP7HjLWfJVETOccRZ5JghTVoRQkcxvToRI1VCBu7k26ZXVxJDmZDnq1+q2Ro+EQzwmRxnA"
+    "uTCJEBLXDN4btCkSbQJpkdBGnW6h4bLAicI40VR8QCSMSUprCwbRdMh8wiHKWhycCQJpajWax/c8/sUtvKShEgUTUfE1Pi2EkStT"
+    "QogGDENA2THgFoCNZC2w4U4rGEGkiRqJKeZwecyghiNzJ3uDpRZeSmMvEIKZopbM+1PzejZys5PqpBMBcgYgc4GiUUCfYeEktowj"
+    "suv4lxHJcZA+QYU0XduRDnUJpqEuHR2FPsTKBoF8fyM7IK+lXfuqzaGZNSIJIiuWqk6ZTEINN4C/LFYctgrqTIAiv6iMhrTHZ1J3"
+    "5whafYxh0jkSO8ccq1Xmf9DBZ2cbEUJ4HS5uWH7z8rcZ60d4tyngA0kc5nqVKiZzeyOgPVmncoOXKX/irZuDxdPiLGKNQ7GaEiJk"
+    "yRwC3fGOH5lA0oEhOhmb9opVODyLKn6MIydZ1BG7K984tagj1LG8qWX0EhTPynsaI/8EUc95T5am1JiBFgD0BEEOggsnFA+i3IM5"
+    "kpfmjVN7mm05Add/pDch4VyLxPBLMWAv0xL0ZQQHneSxM0epQ6ipu65GNYIV9hiBz3ngs8KgG0fk7kmwWiBnnEwyLeyCxUJLGw4r"
+    "UI0myM6iGgXXLLjQpSF+VZpIr/FGJqdRjRRRXnZNUQ3DX9zWGNTUUz3RTs2BkdNROJ6NAl4KdjgNmN6Eu6sUeSkcT52Hl70ikx9G"
+    "I7vmnGXuA5NyigTdRnFVzklJX9NJHZ9ZZP6QVa+is8OepCkW7GigIvWeOCnzo7GqTjc6ppNJLeqFxDtt+hBCP4QkmDeN84dtwLrHE"
+    "P2RtShD0e4UbPA8ie1MjsjvSsHJKXO42AMOpb1RaVzbDWxHuOXwBNo9BY4vTNP28ulbYmHz+DKqRw/scKfjur5lC2PxvW6X97Jx2k"
+    "ocFHYbmkHoC5KJ0EfYTwQxkO8lGQQhYlK6W0xVKjbp2MRDHBBXnQr0pCWIpLiTWD7kJ9GL5AMC43TTxbfIRylEivGdUcAQHMO1fF3"
+    "bYqdb2MWBlVSUL5Sm5WXelUWkE1AAiZ+5fSahqDPGHMQ0SG02x+nO4NkPJ+H5nh562HCPs4sp6Ev/B4oVEOMwLq4CRpm3rybnxYAY"
+    "AaE4kaFhkqFndN02ahYHvFcJU08oREjqoQegzr9ACwf1yQb1HJgXJpwNgzQHxU6qcsQjBjGFgQx0OiJ6y+VMYSCNdS27bKrxVB+ah"
+    "+Z6uu7lWXQ8EEfLWWVYtt+hL1Dk39Z208jpVR2PsrFM7DWlaq8Ve1MOQJUU0SxroybYzFgItiJ1KZN8JVXdwURUCt6wu2P1pk1OF+"
+    "l8hJ+10zwzFas66ghb1BE7M8qk645Y4BgZVZ1qOpP/9HxHj8gWbbNcDnURgGWdkYDS1EVkKTIyeqmUf1aLlT0kQ19EhVlSIdtWYNc"
+    "XZxg5OxcVixH2uLwXLatM3TKdvOZUJ6tCXGZRtodZMX1ku4D6CnkvMxeRHnCYrkUAvCwUIHvnrAmK7J6z16b6K2DgBDWL4ULLAlqp"
+    "OCMXjYOjtTY484BgncgU4lajgxgmGNIJl4xge8VYZdyYT4jD9xywZWf62E1SV+lRyE5dq5HNUaaqZkMahHeL9GqcSup5HpH9RBP8Y"
+    "LTbg8R5oOiTaPZlK1wQGIpoi10jmOoAQyRXfEQn4i71gK5w1CxRhxyc05+sK6hcTFi2NsqeoNOA2n3C71CtY/eZ6Ljn0PIUTLPgFi"
+    "QzyRgmCzMTM9z+VTQ9p9YxNmzp3YcY+w7vvdZFOc5TFSzOgo/fqlsfgHYr1Y0FKcbxhnEm4cpjcEdd1F27967zFnloehElUFvvrCq"
+    "znEQSPxzDpsd0zH7K28G2ufLnIzydzE2fSbeM0bfSrm1VNKaCRpCV2zs314dHGI7YJgrVVFahJxr9Uq8TgVdZJob6JjP3w1GX0bRx"
+    "Tiq05qiFYyURxsdee3WqzsMIuCLsQjG2mpH+7kWZhEpQJmzuLf21Q04pqrn4A6LRDSNuM6NkFcf1mqiCyx4AyFFMdROCWQvI4pcip"
+    "OQEIYXeHNIq5BQxihtP6Mi6k8OxRl71ujwSGp0G0UcyErdtNK/JlJLWZpMpGPoSIs4UPbqIIlCTb42DWgTKfBpOGdA68BYP7RcuTT"
+    "lVmmLvsq7UEU33QWbYqc6NmIwLO1X3aoLt1TDtRb5wMZUBsykuR6xjxLVGzykxBmhqQNejP8Fy1J0Ab1y0+Fl7U0EjmKDx1CSaBBle"
+    "uIudWUT50Ybap9eTfn0LwAUcfllxMoI7yfmNu85MQ69aXlicclJa0RaVN16AfY1VE0i0JPectTB3Zdt8OiktHEOzQwRy5EiRYW/NQ5"
+    "UJULGoOd1yGymcVtpkA9ir2CrWIIh3FKvrWyPRtEt7VpyVz8zEUSNJ7HXBVa2l5KVQ/iI2Qkd1rasq+UJ01pBF9eMqb52Cbj5T28F"
+    "fokoPnEg1E9Ar4Es9I1MdkShvg+KklDjAjp5FAqzfMbjJedxOUJxbCZh2kgkX+xBvJNkvdz23M+yTxGUg8Dsp9LxSZKe88azVl3Qy"
+    "vOmGeCKaiSxvFBYpT6Okk74sR3lOYNeKExOf2jbnK5kj20XNVDbOW8O36PYNDBhvG5/pFIZBO/IjOWIaeVLYO0d7+T7rKPKMaIMzZ"
+    "CEVOge58pIIkAa47pSeGxbMrbu7z7b2mprSivHI0nPVLaa7w57fkhV3FLwLhkE32WG7StEmVT1fF2BS8vu9gmwrV4cOzLlLOPsybo"
+    "s1vJ76Lp6KOhF064FmEZsvSSyFzysb8aWeyu2VwKH/iYqrTtLtdRnvhrCYmkfkEsRLqsvXF5ppZFEawpdhVgjIlTAd1nJNvIjqEAeJ"
+    "wVxXpCWT5Oq4g8sUaRfVKwa+4zWVnPyolsl6S70kwtvSGD2SjQLfy0kmTQmyLePvyFzDZZbNBJy46mtXFpdDIfU0C7oyceByWzQFa"
+    "erj8yXKdQGRta4yK7o8VkWbIY7LxuoiSnDUWV+lzNh7sPOutE56sir7bHUtSL1VJnmw7EpKKj0+6lFxSuittF2knCe6B6ZirnsZuJ"
+    "lsyi4v7MvLIwcTcyfNZ2XQmehMRXO/uPGFhiTUEM110dVkKKJ7aQfqlxb03fPEN2zLM6YTB3tTIuX7wd3WRIk86NokZ7qiSEjOV3X"
+    "PiS4PV9HjoOsiWd+erlwOXhf1+Oq6vo5EnVF1R7HwRM1csPbiuMZamukLmLhmXO5pwubpA6YvpG5ZdhF1ZWh85KNbal285I/0t9I/"
+    "RsHqlwlJQ81plKB/cUVxYpoiUVyhkWYZ+otJ9IxZSorE48BJ/3BC3RA67YBPSoikox7arqqggb0rWNxYA3NMu2qmxX5e3jaw3wceY"
+    "0sRe9iBe8VNLs+aSGQ3C3IUIxKSrqow7+i10K84rFWZtXg1sMDsoHkC0nbfC+LASSHCt3EVrNNbj6MEfivIvkgwSBX1KAG2m2Wjv"
+    "FX0HUV1dkjNlJPAgzKC1wkbzWJF6hhYaN0eb7c2/2RH2ZjawUj86ygT1j67+7aWw0TRGOxhud6Y/WEiO4pyuY8D3777p8t70p7/o"
+    "D318735hx/GElt7XsRhqWdMsZo64JVd55+d0g+jfNqH+AmTHlu8+Cf6DU9o/bi1w1YEkCX+gZNodG6/V6BHTsZlrf8mSrtalD/8C"
+    "mHrvE48+Ywv9AjEZetJJ1pf/sVhwYxyPsQ3rduDeXPYjzb14GpHEw/fruhsUM9m9tsMXzjRd+7g3wOO33b3sMIfEOv5LO0KfsHXL"
+    "3z0YFDfQcTzWT4vQuO8AoJqbv0VvlGl70iPXwQLkWBuH1cT0WT+oUXUl1NU1OVD/yXsE6n5PY8Ie4jwya0erO6QfXwHHwfL+M0V/"
+    "gfW+X+Q4G+hyZ95+cFVfhv7z2Kar6d7mPFAoF+49M+48sWGP9rYD3h2nGRkpPNS2H8BhakvmQ=="
+)
+
+_CACHED_OBITO_TEXT = None
+def get_obito_ansi_image():
+    """Önceden optimize edilmiş Obito ANSI görselini anında çözer (0.00s)."""
     global _CACHED_OBITO_TEXT
     if _CACHED_OBITO_TEXT is not None:
         return _CACHED_OBITO_TEXT
-        
-    if not HAS_PIL or not OBITO_IMG_PATH.exists():
-        return None
     try:
-        img = Image.open(OBITO_IMG_PATH).convert('RGB')
-        img = ImageEnhance.Contrast(img).enhance(1.4)
-        img = ImageEnhance.Sharpness(img).enhance(2.2)
-        img = img.filter(ImageFilter.SHARPEN)
-        img = img.resize((width, height), Image.Resampling.LANCZOS)
-        
-        lines = []
-        for y in range(0, height, 2):
-            line = ""
-            for x in range(width):
-                r1, g1, b1 = img.getpixel((x, y))
-                r2, g2, b2 = img.getpixel((x, y+1)) if y+1 < height else (0, 0, 0)
-                line += f"\x1b[38;2;{r1};{g1};{b1}m\x1b[48;2;{r2};{g2};{b2}m▀\x1b[0m"
-            lines.append(line)
-        _CACHED_OBITO_TEXT = Text.from_ansi("\n".join(lines))
+        import zlib
+        import base64
+        raw_ansi = zlib.decompress(base64.b64decode(OBITO_B64.encode('ascii'))).decode('utf-8')
+        _CACHED_OBITO_TEXT = Text.from_ansi(raw_ansi)
         return _CACHED_OBITO_TEXT
     except Exception:
         return None
 
 def display_banner():
-    obito_img_text = get_obito_ansi_image(width=44, height=24)
+    obito_img_text = get_obito_ansi_image()
     
     banner_text = Text()
     banner_text.append("\n  🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ\n", style="bold yellow")
