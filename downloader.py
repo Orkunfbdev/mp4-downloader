@@ -92,26 +92,34 @@ def open_download_folder():
     """İndirilenler (Masaüstü) klasörünü Windows Gezgini'nde açar."""
     try:
         os.startfile(str(DOWNLOAD_DIR))
-        console.print(f"[bold green]✓ Masaüstü açıldı:[/bold green] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
+        console.print(f"[bold red]🌀 Kamui Boyutu (Masaüstü) açıldı:[/bold red] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
 def display_banner():
     banner_text = Text()
-    banner_text.append("═══════════════════════════════════════════════════════════════\n", style="bold cyan")
-    banner_text.append("             🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ 🎬                \n", style="bold yellow")
-    banner_text.append("     YouTube • TikTok • Twitter (X) • Instagram • 1000+ Site   \n", style="bold white")
-    banner_text.append("     ⚡ Eşzamanlı Çoklu İndirme & Yüksek Kalite MP4            \n", style="bold green")
-    banner_text.append("═══════════════════════════════════════════════════════════════", style="bold cyan")
+    banner_text.append(r"""
+        .---.            .---.
+       /     \  KAMUI   /     \       ⚔️  OBITO UCHIHA  ⚔️
+      |  (o)  |--------|  (•)  |   « Ultimate MP4 Downloader »
+       \     /  VORTEX  \     /     
+        `---'            `---'
+""", style="bold red")
+    banner_text.append("  ═════════════════════════════════════════════════════════════\n", style="bold red")
+    banner_text.append("   👁️  [ KAMUI MP4 DOWNLOADER • SHARINGAN x RINNEGAN ]  👁️    \n", style="bold yellow")
+    banner_text.append("   ❝ Bu dünyadaki tüm videoları Kamui boyutuyla Masaüstüne çek! ❞  \n", style="italic white")
+    banner_text.append("     YouTube • TikTok • Twitter (X) • Instagram • 1000+ Site   \n", style="bold cyan")
+    banner_text.append("  ═════════════════════════════════════════════════════════════", style="bold red")
     
     panel = Panel(
         Align.center(banner_text),
-        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
-        border_style="bright_blue",
+        title="[bold red]🍥 NARUTO SHIPPUDEN • OBITO UCHIHA EDITION 🍥[/bold red]",
+        subtitle="[dim red]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim red]",
+        border_style="bright_red",
         padding=(0, 1)
     )
     console.print(panel)
-    console.print(f"[dim]📁 Kayıt Yeri: [bold underline]{DOWNLOAD_DIR}[/bold underline][/dim]\n")
+    console.print(f"[dim]📁 Kamui Hedefi (Masaüstü): [bold underline red]{DOWNLOAD_DIR}[/bold underline red][/dim]\n")
 
 def download_single_video(url: str):
     """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
@@ -119,11 +127,11 @@ def download_single_video(url: str):
     ffmpeg_exe = get_ffmpeg_path()
     
     console.print(f"\n[{color}]● Platform:[/{color}] [bold {color}]{platform}[/bold {color}]")
-    console.print("[dim]⏳ Video bilgileri alınıyor...[/dim]")
+    console.print("[dim red]👁️ Sharingan aktif... Video bilgileri çekiliyor...[/dim red]")
     
     progress = Progress(
-        TextColumn("[bold blue]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None),
+        TextColumn("[bold red]{task.fields[filename]}", justify="left"),
+        BarColumn(bar_width=None, complete_style="bold red", finished_style="bold green"),
         "[progress.percentage]{task.percentage:>3.1f}%",
         "•",
         FileSizeColumn(),
@@ -203,8 +211,8 @@ def download_single_video(url: str):
             resolution = info.get('resolution') or f"{info.get('width', '?')}x{info.get('height', '?')}"
             
             # Bilgi Kartı
-            table = Table(title="📹 Video Detayları", show_header=False, border_style="blue", padding=(0, 1))
-            table.add_column("Özellik", style="bold yellow", width=14)
+            table = Table(title="🌀 Kamui Hedef Detayları", show_header=False, border_style="red", padding=(0, 1))
+            table.add_column("Özellik", style="bold red", width=14)
             table.add_column("Değer", style="white")
             
             table.add_row("Başlık", str(title))
@@ -213,7 +221,7 @@ def download_single_video(url: str):
             table.add_row("Çözünürlük", str(resolution))
             
             console.print(table)
-            console.print("[bold green]⬇ İndirme işlemi başlatılıyor...[/bold green]\n")
+            console.print("[bold red]🌀 Kamui başlatılıyor... Video boyuttan çekiliyor...[/bold red]\n")
             
             download_result = ydl.extract_info(url, download=True)
             
@@ -224,15 +232,15 @@ def download_single_video(url: str):
                 if not saved_file_name.endswith('.mp4'):
                     saved_file_name = os.path.splitext(saved_file_name)[0] + '.mp4'
 
-        console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
-        console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
+        console.print("\n[bold red]═════════════════════════════════════════════════════════════[/bold red]")
+        console.print("[bold red]✓ KAMUI TAMAMLANDI! Video Masaüstüne Işınlandı! 🌀🔥[/bold red]")
         if saved_file_name and os.path.exists(saved_file_name):
             file_size_mb = os.path.getsize(saved_file_name) / (1024 * 1024)
             console.print(f"[bold white]Dosya:[/bold white] [cyan]{os.path.basename(saved_file_name)}[/cyan] ({file_size_mb:.2f} MB)")
-            console.print(f"[bold white]Konum:[/bold white] [dim]{saved_file_name}[/dim]")
+            console.print(f"[bold white]Konum:[/bold white] [dim red]{saved_file_name}[/dim red]")
         else:
             console.print(f"[bold white]Konum:[/bold white] [cyan]{DOWNLOAD_DIR}[/cyan]")
-        console.print("[bold green]════════════════════════════════════════════════════════════[/bold green]\n")
+        console.print("[bold red]═════════════════════════════════════════════════════════════[/bold red]\n")
 
     except yt_dlp.utils.DownloadError as de:
         err_msg = str(de)
@@ -246,13 +254,13 @@ def download_single_video(url: str):
 
 def download_multiple_videos(urls: list[str]):
     """Birden fazla video linkini eşzamanlı/paralel indirir."""
-    console.print(f"\n[bold cyan]⚡ {len(urls)} adet video eşzamanlı olarak indiriliyor...[/bold cyan]\n")
+    console.print(f"\n[bold red]🌀 Kamui Çoklu Vorteks Aktif: {len(urls)} video aynı anda çekiliyor...[/bold red]\n")
     
     multi_progress = Progress(
         SpinnerColumn(),
-        TextColumn("[bold cyan]{task.fields[status]}", justify="left"),
+        TextColumn("[bold red]{task.fields[status]}", justify="left"),
         TextColumn("[bold white]{task.description}"),
-        BarColumn(bar_width=25),
+        BarColumn(bar_width=25, complete_style="bold red", finished_style="bold green"),
         "[progress.percentage]{task.percentage:>3.1f}%",
         "•",
         FileSizeColumn(),
@@ -325,7 +333,7 @@ def download_multiple_videos(urls: list[str]):
         with ThreadPoolExecutor(max_workers=5) as executor:
             list(executor.map(worker, urls))
             
-    console.print("\n[bold green]✓ Tüm çoklu indirmeler tamamlandı! Dosyalar Masaüstüne kaydedildi.[/bold green]\n")
+    console.print("\n[bold red]✓ Kamui Vorteks tamamlandı! Tüm videolar Masaüstüne ışınlandı.[/bold red]\n")
 
 def process_input(user_input: str):
     """Kullanıcının girdiği komut veya linkleri işler."""
@@ -362,18 +370,18 @@ def main():
     if not ffmpeg_exe:
         console.print("[yellow]⚠️ Uyarı: FFmpeg motoru bulunamadı. Bazı 1080p/4K videolarda ses birleştirme sınırlı olabilir.[/yellow]\n")
     else:
-        console.print("[green]✓ FFmpeg video işleme motoru aktif.[/green]\n")
+        console.print("[bold red]✓ FFmpeg Kamui motoru devrede.[/bold red]\n")
 
     while True:
         try:
-            user_input = Prompt.ask("[bold yellow]📥 Video linki yapıştırın[/bold yellow] [dim]('q'=çıkış, 'klasor'=masaüstü, 'cls'=temizle)[/dim]").strip()
+            user_input = Prompt.ask("[bold red]👁️ Obito Link Bekliyor[/bold red] [bold yellow]>[/bold yellow] [dim]('q'=çıkış, 'klasor'=masaüstü, 'cls'=temizle)[/dim]").strip()
             
             if not user_input:
                 continue
                 
             cmd = user_input.lower()
             if cmd in ['q', 'exit', 'quit', 'cikis', 'çıkış']:
-                console.print("\n[bold cyan]Güle güle! Görüşmek üzere 👋[/bold cyan]\n")
+                console.print("\n[bold red]❝ Bu dünya bir yanılsamadan ibaret... ❞ Güle güle! 👋[/bold red]\n")
                 break
             elif cmd in ['klasor', 'klasör', 'open', 'desktop', 'masaustu', 'masaüstü']:
                 open_download_folder()
@@ -386,7 +394,7 @@ def main():
             process_input(user_input)
             
         except (KeyboardInterrupt, EOFError):
-            console.print("\n\n[bold cyan]İşlem kullanıcı tarafından durduruldu. Görüşmek üzere 👋[/bold cyan]\n")
+            console.print("\n\n[bold red]İşlem durduruldu. Kamui kapatıldı. 👋[/bold red]\n")
             break
         except Exception as e:
             console.print(f"\n[bold red]Hata: {e}[/bold red]\n")
