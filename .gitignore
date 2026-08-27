@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Sanal Ortamlar
+.venv/
+venv/
+env/
+ENV/
+
+# Medya Dosyaları
+*.mp4
+*.m4a
+*.webm
+*.mkv
+indirilenler/
+
+# Sistem ve Editör
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db
