@@ -22,7 +22,6 @@ try:
     from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn, FileSizeColumn, SpinnerColumn
     from rich.text import Text
     from rich.align import Align
-    import yt_dlp
 except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
     sys.exit(1)
@@ -34,15 +33,21 @@ try:
 except ImportError:
     HAS_PIL = False
 
-# FFmpeg yolunu belirle
+# FFmpeg yolunu belirle ve önbellekle
+_CACHED_FFMPEG_PATH = None
 def get_ffmpeg_path():
+    global _CACHED_FFMPEG_PATH
+    if _CACHED_FFMPEG_PATH is not None:
+        return _CACHED_FFMPEG_PATH
     try:
         import imageio_ffmpeg
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         if os.path.exists(ffmpeg_exe):
-            return ffmpeg_exe
+            _CACHED_FFMPEG_PATH = ffmpeg_exe
+            return _CACHED_FFMPEG_PATH
     except Exception:
         pass
+    _CACHED_FFMPEG_PATH = ""
     return None
 
 console = Console(force_terminal=True, legacy_windows=False)
@@ -63,6 +68,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 
 ASSETS_DIR = BASE_DIR / "assets"
 OBITO_IMG_PATH = ASSETS_DIR / "obito.jpg"
+_CACHED_OBITO_TEXT = None
 
 def detect_platform(url: str) -> tuple[str, str]:
     """Linkten platformu ve uygun renk bilgisini döner."""
@@ -105,7 +111,11 @@ def open_download_folder():
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
 def get_obito_ansi_image(width=44, height=24):
-    """Obito resmini yüksek çözünürlük ve gerçek RGB renklerle ANSI metnine dönüştürür."""
+    """Obito resmini yüksek çözünürlük ve gerçek RGB renklerle ANSI metnine dönüştürür (önbellekli)."""
+    global _CACHED_OBITO_TEXT
+    if _CACHED_OBITO_TEXT is not None:
+        return _CACHED_OBITO_TEXT
+        
     if not HAS_PIL or not OBITO_IMG_PATH.exists():
         return None
     try:
@@ -123,7 +133,8 @@ def get_obito_ansi_image(width=44, height=24):
                 r2, g2, b2 = img.getpixel((x, y+1)) if y+1 < height else (0, 0, 0)
                 line += f"\x1b[38;2;{r1};{g1};{b1}m\x1b[48;2;{r2};{g2};{b2}m▀\x1b[0m"
             lines.append(line)
-        return Text.from_ansi("\n".join(lines))
+        _CACHED_OBITO_TEXT = Text.from_ansi("\n".join(lines))
+        return _CACHED_OBITO_TEXT
     except Exception:
         return None
 
@@ -264,6 +275,7 @@ def download_single_video(url: str):
     saved_file_name = ""
     
     try:
+        import yt_dlp
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if not info:
@@ -386,6 +398,7 @@ def download_multiple_videos(urls: list[str]):
             opts['format'] = 'best[ext=mp4]/best'
             
         try:
+            import yt_dlp
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 title = info.get('title', 'Video') if info else 'Video'
