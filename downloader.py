@@ -1,8 +1,9 @@
 import os
 import sys
 import time
-import subprocess
+import threading
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 # Windows UTF-8 / Türkçe karakter desteği
 if sys.platform == "win32":
@@ -18,10 +19,11 @@ try:
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
-    from rich.prompt import Prompt
-    from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn, FileSizeColumn
+    from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn, FileSizeColumn, SpinnerColumn
     from rich.text import Text
     from rich.align import Align
+    from rich.live import Live
+    from rich.layout import Layout
     import yt_dlp
 except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
@@ -54,17 +56,17 @@ DOWNLOAD_DIR = get_desktop_dir()
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 def detect_platform(url: str) -> tuple[str, str]:
-    """Linkten platformu ve uygun emoji/renk bilgisini döner."""
+    """Linkten platformu ve uygun renk bilgisini döner."""
     url_lower = url.lower()
     if "youtube.com" in url_lower or "youtu.be" in url_lower:
         return "YouTube", "red"
     elif "tiktok.com" in url_lower:
         return "TikTok", "magenta"
-    elif "instagram.com" in url_lower:
+    elif "instagram.com" in url_lower or "instagr.am" in url_lower:
         return "Instagram", "bright_magenta"
-    elif "twitter.com" in url_lower or "x.com" in url_lower:
+    elif "twitter.com" in url_lower or "x.com" in url_lower or "t.co" in url_lower:
         return "Twitter / X", "cyan"
-    elif "facebook.com" in url_lower or "fb.watch" in url_lower:
+    elif "facebook.com" in url_lower or "fb.watch" in url_lower or "fb.com" in url_lower:
         return "Facebook", "blue"
     elif "reddit.com" in url_lower:
         return "Reddit", "bright_red"
@@ -86,75 +88,96 @@ def format_duration(seconds):
     return f"{mins:02d}:{secs:02d}"
 
 def open_download_folder():
-    """İndirilenler klasörünü Windows Gezgini'nde açar."""
+    """İndirilenler (Masaüstü) klasörünü Windows Gezgini'nde açar."""
     try:
         os.startfile(str(DOWNLOAD_DIR))
-        console.print(f"[bold green]✓ İndirilenler klasörü açıldı:[/bold green] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
+        console.print(f"[bold green]✓ Masaüstü açıldı:[/bold green] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
 def display_banner():
     banner_text = Text()
-    banner_text.append("══════════════════════════════════════════════════════════\n", style="bold cyan")
-    banner_text.append("           🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ 🎬             \n", style="bold yellow")
-    banner_text.append("      YouTube • TikTok • Twitter (X) • Instagram • Web    \n", style="bold white")
-    banner_text.append("══════════════════════════════════════════════════════════", style="bold cyan")
+    banner_text.append("═══════════════════════════════════════════════════════════════\n", style="bold cyan")
+    banner_text.append("             🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ 🎬                \n", style="bold yellow")
+    banner_text.append("     YouTube • TikTok • Twitter (X) • Instagram • 1000+ Site   \n", style="bold white")
+    banner_text.append("     ⚡ Eşzamanlı Çoklu İndirme Desteği Aktif                  \n", style="bold green")
+    banner_text.append("═══════════════════════════════════════════════════════════════", style="bold cyan")
     
     panel = Panel(
         Align.center(banner_text),
-        subtitle="[dim]Hazır • Çıkış: 'q' • Klasörü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
+        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
         border_style="bright_blue",
         padding=(0, 1)
     )
     console.print(panel)
     console.print(f"[dim]📁 Kayıt Yeri: [bold underline]{DOWNLOAD_DIR}[/bold underline][/dim]\n")
 
-def download_video(url: str):
+# Global çoklu indirme ilerleme çubuğu yöneticisi
+shared_progress = Progress(
+    SpinnerColumn(),
+    TextColumn("[bold cyan]{task.fields[status]}", justify="left"),
+    TextColumn("[bold white]{task.description}"),
+    BarColumn(bar_width=25),
+    "[progress.percentage]{task.percentage:>3.1f}%",
+    "•",
+    FileSizeColumn(),
+    "•",
+    TransferSpeedColumn(),
+    "•",
+    TimeRemainingColumn(),
+    console=console,
+    transient=False,
+    refresh_per_second=10
+)
+
+# Eşzamanlı indirmeler için thread havuzu
+executor = ThreadPoolExecutor(max_workers=6)
+active_downloads_count = 0
+downloads_lock = threading.Lock()
+
+TEMP_DIR = Path(os.environ.get('TEMP', str(DOWNLOAD_DIR))) / "mp4_downloader_temp"
+TEMP_DIR.mkdir(exist_ok=True)
+
+def download_task_worker(url: str):
+    global active_downloads_count
+    with downloads_lock:
+        active_downloads_count += 1
+    
     platform, color = detect_platform(url)
     ffmpeg_exe = get_ffmpeg_path()
     
-    console.print(f"\n[{color}]● Algılanan Platform:[/{color}] [bold {color}]{platform}[/bold {color}]")
-    console.print("[dim]⏳ Video bilgileri alınıyor...[/dim]")
-    
-    progress = Progress(
-        TextColumn("[bold blue]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None),
-        "[progress.percentage]{task.percentage:>3.1f}%",
-        "•",
-        FileSizeColumn(),
-        "•",
-        TransferSpeedColumn(),
-        "•",
-        TimeRemainingColumn(),
-        console=console,
-        transient=False
+    # Progress task ekle
+    short_url = url if len(url) <= 35 else url[:32] + "..."
+    task_id = shared_progress.add_task(
+        description=f"[{color}][{platform}][/{color}] {short_url}",
+        total=100,
+        status="⏳ Bağlanıyor..."
     )
     
-    task_id = None
-    
     def yt_progress_hook(d):
-        nonlocal task_id
         if d['status'] == 'downloading':
             total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
             downloaded = d.get('downloaded_bytes', 0)
-            filename = os.path.basename(d.get('filename', 'Video'))
-            if len(filename) > 30:
-                filename = filename[:27] + "..."
-            
-            if task_id is None:
-                task_id = progress.add_task("download", total=total_bytes, filename=filename)
-                progress.start()
-            
             if total_bytes > 0:
-                progress.update(task_id, total=total_bytes, completed=downloaded, filename=filename)
+                shared_progress.update(
+                    task_id,
+                    total=total_bytes,
+                    completed=downloaded,
+                    status="⬇ İndiriliyor"
+                )
         elif d['status'] == 'finished':
-            if task_id is not None:
-                progress.update(task_id, completed=progress.tasks[task_id].total)
-                progress.stop()
+            shared_progress.update(
+                task_id,
+                status="🔄 İşleniyor/MP4..."
+            )
     
     ydl_opts = {
+        'paths': {
+            'home': str(DOWNLOAD_DIR),
+            'temp': str(TEMP_DIR),
+        },
         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
-        'outtmpl': str(DOWNLOAD_DIR / '%(title).120B [%(id)s].%(ext)s'),
+        'outtmpl': '%(title).120B [%(id)s].%(ext)s',
         'merge_output_format': 'mp4',
         'progress_hooks': [yt_progress_hook],
         'quiet': True,
@@ -162,20 +185,16 @@ def download_video(url: str):
         'noprogress': True,
         'ignoreerrors': False,
         'windowsfilenames': True,
+        'overwrites': True,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
         },
-        'postprocessors': [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
-        }],
     }
     
     if ffmpeg_exe:
         ydl_opts['ffmpeg_location'] = ffmpeg_exe
 
-    # Özel platform format ayarları
     if "tiktok.com" in url.lower():
         ydl_opts['format'] = 'best[ext=mp4]/best'
     elif "instagram.com" in url.lower():
@@ -184,36 +203,26 @@ def download_video(url: str):
         ydl_opts['format'] = 'best[ext=mp4]/best'
 
     saved_file_name = ""
+    title = ""
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            shared_progress.update(task_id, status="🔍 Bilgi alınıyor...")
             info = ydl.extract_info(url, download=False)
             if not info:
-                console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
+                shared_progress.update(task_id, status="❌ [bold red]Hata (Link geçersiz)[/bold red]", completed=100)
                 return
             
-            title = info.get('title', 'Bilinmeyen Video')
-            uploader = info.get('uploader') or info.get('channel') or info.get('creator') or 'Bilinmiyor'
-            duration = format_duration(info.get('duration'))
-            resolution = info.get('resolution') or f"{info.get('width', '?')}x{info.get('height', '?')}"
+            title = info.get('title', 'Video')
+            short_title = title if len(title) <= 30 else title[:27] + "..."
+            shared_progress.update(
+                task_id,
+                description=f"[{color}][{platform}][/{color}] {short_title}",
+                status="⬇ İndiriliyor..."
+            )
             
-            # Bilgi Kartı Tablosu
-            table = Table(title="📹 Video Detayları", show_header=False, border_style="blue", padding=(0, 1))
-            table.add_column("Özellik", style="bold yellow", width=14)
-            table.add_column("Değer", style="white")
-            
-            table.add_row("Başlık", str(title))
-            table.add_row("Kanal / Sahip", str(uploader))
-            table.add_row("Süre", str(duration))
-            table.add_row("Çözünürlük", str(resolution))
-            
-            console.print(table)
-            console.print("[bold green]⬇ İndirme işlemi başlatılıyor...[/bold green]\n")
-            
-            # Gerçek indirmeyi yap
             download_result = ydl.extract_info(url, download=True)
             
-            # İndirilen dosya adı
             if 'requested_downloads' in download_result and download_result['requested_downloads']:
                 saved_file_name = download_result['requested_downloads'][0].get('filepath', '')
             else:
@@ -221,68 +230,117 @@ def download_video(url: str):
                 if not saved_file_name.endswith('.mp4'):
                     saved_file_name = os.path.splitext(saved_file_name)[0] + '.mp4'
 
-        console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
-        console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
+        shared_progress.update(
+            task_id,
+            completed=shared_progress.tasks[task_id].total or 100,
+            status="[bold green]✓ Tamamlandı[/bold green]"
+        )
+        
+        file_size_str = ""
         if saved_file_name and os.path.exists(saved_file_name):
             file_size_mb = os.path.getsize(saved_file_name) / (1024 * 1024)
-            console.print(f"[bold white]Dosya:[/bold white] [cyan]{os.path.basename(saved_file_name)}[/cyan] ({file_size_mb:.2f} MB)")
-            console.print(f"[bold white]Konum:[/bold white] [dim]{saved_file_name}[/dim]")
-        else:
-            console.print(f"[bold white]Konum:[/bold white] [cyan]{DOWNLOAD_DIR}[/cyan]")
-        console.print("[bold green]════════════════════════════════════════════════════════════[/bold green]\n")
-
-    except yt_dlp.utils.DownloadError as de:
-        err_msg = str(de)
-        console.print(f"\n[bold red]❌ İndirme Hatası:[/bold red] {err_msg}")
-        if "Private video" in err_msg or "login" in err_msg.lower():
-            console.print("[yellow]💡 İpucu: Bu video gizli veya giriş yapmayı gerektiriyor olabilir.[/yellow]")
-        elif "Sign in" in err_msg:
-            console.print("[yellow]💡 İpucu: Yaş kısıtlaması veya oturum açma gereksinimi var.[/yellow]")
-        console.print("")
+            file_size_str = f" ({file_size_mb:.1f} MB)"
+            
+        console.print(f"\n[bold green]✓ [Masaüstü][/bold green] [white]{title}[/white][green]{file_size_str}[/green] başarıyla kaydedildi!")
+        
     except Exception as e:
-        console.print(f"\n[bold red]❌ Beklenmeyen bir hata oluştu:[/bold red] {e}\n")
+        err_str = str(e)
+        if len(err_str) > 60:
+            err_str = err_str[:57] + "..."
+        shared_progress.update(task_id, status=f"[bold red]❌ {err_str}[/bold red]", completed=100)
+        console.print(f"\n[bold red]❌ İndirme Başarısız:[/bold red] {url} -> [dim]{e}[/dim]")
+    finally:
+        with downloads_lock:
+            active_downloads_count -= 1
 
-def main():
+def queue_download(url: str):
+    """İndirme işlemini arkaplan iş parçacığına gönderir."""
+    executor.submit(download_task_worker, url)
+
+def interactive_loop():
     os.system('cls' if os.name == 'nt' else 'clear')
     display_banner()
     
     ffmpeg_exe = get_ffmpeg_path()
     if not ffmpeg_exe:
-        console.print("[yellow]⚠️ Uyarı: FFmpeg motoru bulunamadı. Bazı 1080p/4K YouTube videolarında ses birleştirme sınırlı olabilir.[/yellow]\n")
+        console.print("[yellow]⚠️ Uyarı: FFmpeg motoru bulunamadı. Bazı 1080p/4K videolarda ses birleştirme sınırlı olabilir.[/yellow]\n")
     else:
         console.print("[green]✓ FFmpeg video işleme motoru aktif.[/green]\n")
 
-    while True:
-        try:
-            user_input = Prompt.ask("[bold yellow]📥 Video linkini yapıştırın[/bold yellow] [dim]('q'=çıkış, 'klasor'=klasörü aç)[/dim]").strip()
-            
-            if not user_input:
-                continue
+    # Shared progress'i başlat
+    shared_progress.start()
+
+    try:
+        while True:
+            try:
+                console.print("[bold yellow]📥 Video linki yapıştırın[/bold yellow] [dim](Birden fazla link atabilir, inerken yenisini ekleyebilirsiniz)[/dim]:", end=" ")
+                user_input = sys.stdin.readline()
+                if not user_input:
+                    break
+                user_input = user_input.strip()
                 
-            cmd = user_input.lower()
-            if cmd in ['q', 'exit', 'quit', 'cikis', 'çıkış']:
-                console.print("\n[bold cyan]Güle güle! Görüşmek üzere 👋[/bold cyan]\n")
+                if not user_input:
+                    continue
+                    
+                cmd = user_input.lower()
+                if cmd in ['q', 'exit', 'quit', 'cikis', 'çıkış']:
+                    if active_downloads_count > 0:
+                        console.print(f"\n[yellow]⏳ Arkaplanda devam eden {active_downloads_count} indirme var. Tamamlanmaları bekleniyor...[/yellow]")
+                        executor.shutdown(wait=True)
+                    console.print("\n[bold cyan]Güle güle! Görüşmek üzere 👋[/bold cyan]\n")
+                    break
+                elif cmd in ['klasor', 'klasör', 'open', 'desktop', 'masaustu', 'masaüstü']:
+                    open_download_folder()
+                    continue
+                elif cmd in ['cls', 'clear', 'temizle']:
+                    os.system('cls' if os.name == 'nt' else 'clear')
+                    display_banner()
+                    continue
+                
+                # Boşlukla ayrılmış birden fazla link girildiyse hepsini kuyruğa al
+                urls = [u.strip() for u in user_input.split() if u.strip()]
+                for u in urls:
+                    if u.startswith("http://") or u.startswith("https://") or "www." in u:
+                        queue_download(u)
+                    else:
+                        console.print(f"[bold red]❌ Geçersiz link formatı:[/bold red] {u}")
+                
+                time.sleep(0.3)
+                
+            except (KeyboardInterrupt, EOFError):
+                if active_downloads_count > 0:
+                    console.print(f"\n[yellow]⏳ Devam eden {active_downloads_count} indirme tamamlanıyor...[/yellow]")
+                    executor.shutdown(wait=True)
+                console.print("\n[bold cyan]Çıkış yapıldı. 👋[/bold cyan]\n")
                 break
-            elif cmd in ['klasor', 'klasör', 'open', 'downloads', 'folder']:
-                open_download_folder()
-                continue
-            elif cmd in ['cls', 'clear', 'temizle']:
-                os.system('cls' if os.name == 'nt' else 'clear')
-                display_banner()
-                continue
+            except Exception as e:
+                console.print(f"\n[bold red]Hata: {e}[/bold red]\n")
+    finally:
+        shared_progress.stop()
+
+def main():
+    # Komut satırı argümanı kontrolü (Örn: indir https://... https://...)
+    if len(sys.argv) > 1:
+        args = sys.argv[1:]
+        # Özel komutlar kontrolü
+        if args[0].lower() in ['klasor', 'klasör', 'open', 'masaustu']:
+            open_download_folder()
+            return
+        
+        shared_progress.start()
+        try:
+            for url in args:
+                if url.startswith("http://") or url.startswith("https://") or "www." in url:
+                    queue_download(url)
+                else:
+                    console.print(f"[bold red]❌ Geçersiz link:[/bold red] {url}")
             
-            # URL kontrolü
-            if not (user_input.startswith("http://") or user_input.startswith("https://") or "www." in user_input):
-                console.print("[bold red]❌ Geçerli bir web linki girmediniz! Lütfen http:// veya https:// ile başlayan bir link yapıştırın.[/bold red]\n")
-                continue
-            
-            download_video(user_input)
-            
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n\n[bold cyan]İşlem kullanıcı tarafından durduruldu. Görüşmek üzere 👋[/bold cyan]\n")
-            break
-        except Exception as e:
-            console.print(f"\n[bold red]Hata: {e}[/bold red]\n")
+            # Tüm indirmeler bitene kadar bekle
+            executor.shutdown(wait=True)
+        finally:
+            shared_progress.stop()
+    else:
+        interactive_loop()
 
 if __name__ == "__main__":
     main()
