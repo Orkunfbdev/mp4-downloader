@@ -1,8 +1,15 @@
-﻿import os
+import os
 import sys
 import shutil
 import subprocess
 from pathlib import Path
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -25,19 +32,19 @@ EXCLUDED_MODULES = [
     "pymsgbox", "pyscreeze", "pytweening",
     
     # Unneeded Python Standard Tooling
-    "unittest", "test", "doctest", "pydoc", "distutils", "email",
-    "lib2to3", "sqlite3", "xmlrpc", "multiprocessing",
+    "unittest", "test", "doctest", "pydoc",
 ]
 
-def build():
+def build(onefile=True):
+    mode_str = "Tek Dosya (OneFile)" if onefile else "Klasör Modu (Ultra Hızlı - 0.2s)"
     print("=" * 60)
-    print("🚀 MP4 Downloader - Ultra Hızlı EXE Derleyici")
+    print(f"🚀 MP4 Downloader - EXE Derleyici [{mode_str}]")
     print("=" * 60)
     
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
-        "--onefile",
+        "--onefile" if onefile else "--onedir",
         "--clean",
         "--name", "orkunfb",
         "--console",
@@ -58,15 +65,28 @@ def build():
         print("\n❌ Derleme başarısız oldu!")
         sys.exit(res.returncode)
         
-    dist_exe = BASE_DIR / "dist" / "orkunfb.exe"
-    target_exe = BASE_DIR / "orkunfb.exe"
+    dist_dir = BASE_DIR / "dist"
     
-    if dist_exe.exists():
-        if target_exe.exists():
-            target_exe.unlink()
-        shutil.move(str(dist_exe), str(target_exe))
-        print(f"\n✓ Başarılı! Yeni exe oluşturuldu: {target_exe} ({target_exe.stat().st_size / (1024*1024):.2f} MB)")
-        
+    if onefile:
+        dist_exe = dist_dir / "orkunfb.exe"
+        target_exe = BASE_DIR / "orkunfb.exe"
+        if dist_exe.exists():
+            if target_exe.exists():
+                try:
+                    target_exe.unlink()
+                except Exception:
+                    pass
+            shutil.move(str(dist_exe), str(target_exe))
+            print(f"\n✓ Başarılı! Tek dosya EXE oluşturuldu: {target_exe} ({target_exe.stat().st_size / (1024*1024):.2f} MB)")
+    else:
+        dist_folder = dist_dir / "orkunfb"
+        target_folder = BASE_DIR / "orkunfb_app"
+        if dist_folder.exists():
+            if target_folder.exists():
+                shutil.rmtree(target_folder, ignore_errors=True)
+            shutil.move(str(dist_folder), str(target_folder))
+            print(f"\n✓ Başarılı! Anında açılan (0.2s) uygulama klasörü oluşturuldu: {target_folder}\\orkunfb.exe")
+            
     # Temizlik
     for p in [BASE_DIR / "build", BASE_DIR / "dist", BASE_DIR / "orkunfb.spec"]:
         if p.is_dir():
@@ -78,4 +98,5 @@ def build():
     print("=" * 60)
 
 if __name__ == "__main__":
-    build()
+    is_dir = "--dir" in sys.argv or "--fast" in sys.argv
+    build(onefile=not is_dir)
