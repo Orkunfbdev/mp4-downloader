@@ -230,6 +230,12 @@ def download_single_video(url: str):
         'windowsfilenames': True,
         'overwrites': True,
         'nocheckcertificate': True,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitleslangs': ['tr', 'tr-.*', 'tur', 'Turkish', 'en', 'all'],
+        'postprocessors': [
+            {'key': 'FFmpegEmbedSubtitle', 'already_have_subtitle': False},
+        ],
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
@@ -361,6 +367,12 @@ def download_multiple_videos(urls: list[str]):
             'windowsfilenames': True,
             'overwrites': True,
             'nocheckcertificate': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['tr', 'tr-.*', 'tur', 'Turkish', 'en', 'all'],
+            'postprocessors': [
+                {'key': 'FFmpegEmbedSubtitle', 'already_have_subtitle': False},
+            ],
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
