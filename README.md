@@ -44,11 +44,26 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 
 ## 🌟 Özellikler
 
-1. **🎬 Şık Terminal Arayüzü:** Renkli ve modern konsol tasarımı.
-2. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
-3. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
-4. **📁 Doğrudan Masaüstü Kaydı:** İndirilen MP4 videoları doğrudan **Masaüstünüze** kaydedilir.
-5. **💬 Otomatik Türkçe Altyazı Gömme:** Altyazılı videolarda Türkçe altyazıyı otomatik MP4 içine gömer.
+1. **⚡ Ultra Hızlı Başlangıç (0.04s):** Gömülü ve optimize ANSI görsel motoru sayesinde sıfır bekleme ile anında açılır.
+2. **🎬 Şık & Donmayan Terminal Arayüzü:** 16 FPS hız sınırlamalı akıcı ilerleme çubukları ile CPU ve konsol kilitlenmeleri önlenir.
+3. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
+4. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
+5. **📁 Doğrudan Masaüstü Kaydı:** İndirilen MP4 videoları doğrudan **Masaüstünüze** kaydedilir.
+6. **💬 Otomatik Türkçe Altyazı Gömme:** Altyazılı videolarda Türkçe altyazıyı otomatik MP4 içine gömer.
+
+---
+
+## 🔨 Bağımsız EXE Derleme
+
+Kendi bilgisayarınızda taşınabilir EXE üretmek için:
+
+```bash
+# Tek dosya bağımsız EXE üretir:
+python build_exe.py
+
+# Veya anında (0.2s) açılan klasör modu üretir:
+python build_exe.py --dir
+```
 
 ---
 
@@ -68,3 +83,4 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 - **Instagram** (Reels, Post, Hikaye)
 - **Twitter / X** (Tüm video paylaşımları)
 - **Facebook, Reddit, Twitch, Pinterest, Anime ve Dizi/Film Siteleri** ve diğer 1000+ site.
+
