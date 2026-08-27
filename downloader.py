@@ -148,6 +148,28 @@ def display_banner():
     )
     console.print(panel)
 
+def show_anime_guide():
+    """Anime ve film sitelerinden kolayca video indirme rehberini gösterir."""
+    guide_text = Text()
+    guide_text.append("🎬 ANİME & DİZİ/FİLM SİTELERİNDEN İNDİRME REHBERİ\n\n", style="bold yellow")
+    guide_text.append("1. F12 Taktigi (%100 Garanti Yöntem):\n", style="bold cyan")
+    guide_text.append("   • Sitede F12 tuşuna basın ve 'Ağ' (Network) sekmesine gelin.\n", style="white")
+    guide_text.append("   • Filtre kutucuğuna 'm3u8' veya 'mp4' yazın.\n", style="white")
+    guide_text.append("   • Videoyu başlatın; altta beliren 'master.m3u8' linkine sağ tıklayıp kopyalayın.\n", style="white")
+    guide_text.append("   • Buraya yapıştırın, otomatik olarak tek parça MP4 olarak iner!\n\n", style="green")
+    guide_text.append("2. Player Kaynak Linki Yöntemi:\n", style="bold cyan")
+    guide_text.append("   • Videonun altındaki 'Sibnet', 'Vidmoly', 'YourUpload' butonlarına tıklayın.\n", style="white")
+    guide_text.append("   • Video penceresine sağ tıklayıp 'Video Bağlantısını Kopyala' deyin ve buraya yapıştırın.\n", style="white")
+    
+    panel = Panel(
+        guide_text,
+        title="[bold yellow]💡 İPUCU & REHBER[/bold yellow]",
+        border_style="yellow",
+        padding=(1, 2)
+    )
+    console.print(panel)
+    console.print("")
+
 def download_single_video(url: str):
     """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
     platform, color = detect_platform(url)
@@ -207,6 +229,7 @@ def download_single_video(url: str):
         'ignoreerrors': False,
         'windowsfilenames': True,
         'overwrites': True,
+        'nocheckcertificate': True,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
@@ -337,6 +360,7 @@ def download_multiple_videos(urls: list[str]):
             'ignoreerrors': False,
             'windowsfilenames': True,
             'overwrites': True,
+            'nocheckcertificate': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
@@ -423,6 +447,9 @@ def main():
                 break
             elif cmd in ['klasor', 'klasör', 'open', 'desktop', 'masaustu', 'masaüstü']:
                 open_download_folder()
+                continue
+            elif cmd in ['yardim', 'help', 'rehber', 'info', 'bilgi']:
+                show_anime_guide()
                 continue
             elif cmd in ['cls', 'clear', 'temizle']:
                 os.system('cls' if os.name == 'nt' else 'clear')
