@@ -41,6 +41,7 @@ def build(onefile=True):
     print(f"🚀 MP4 Downloader - EXE Derleyici [{mode_str}]")
     print("=" * 60)
     
+    icon_path = BASE_DIR / "assets" / "icon.ico"
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
@@ -52,6 +53,9 @@ def build(onefile=True):
         "--collect-submodules", "yt_dlp",
         "--collect-submodules", "curl_cffi",
     ]
+    
+    if icon_path.exists():
+        cmd.extend(["--icon", str(icon_path)])
     
     for mod in EXCLUDED_MODULES:
         cmd.extend(["--exclude-module", mod])
