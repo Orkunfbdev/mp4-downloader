@@ -29,7 +29,7 @@ except ImportError:
 
 # Pillow kontrolü
 try:
-    from PIL import Image
+    from PIL import Image, ImageEnhance, ImageFilter
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -93,21 +93,19 @@ def format_duration(seconds):
     return f"{mins:02d}:{secs:02d}"
 
 def open_download_folder():
-    """İndirilenler (Masaüstü) klasörünü Windows Gezgini'nde açar."""
+    """Masaüstü klasörünü Windows Gezgini'nde açar."""
     try:
         os.startfile(str(DOWNLOAD_DIR))
-        console.print(f"[bold red]🌀 Kamui Boyutu (Masaüstü) açıldı:[/bold red] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
+        console.print(f"[bold green]✓ Masaüstü açıldı:[/bold green] [cyan]{DOWNLOAD_DIR}[/cyan]\n")
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
-def get_obito_ansi_image(width=46, height=26):
-    """Obito resmini yüksek çözünürlük, keskinlik ve gerçek RGB renklerle ANSI metnine dönüştürür."""
+def get_obito_ansi_image(width=44, height=24):
+    """Obito resmini yüksek çözünürlük ve gerçek RGB renklerle ANSI metnine dönüştürür."""
     if not HAS_PIL or not OBITO_IMG_PATH.exists():
         return None
     try:
-        from PIL import ImageEnhance, ImageFilter
         img = Image.open(OBITO_IMG_PATH).convert('RGB')
-        # Görüntü kalitesini, kontrastını ve keskinliğini artır
         img = ImageEnhance.Contrast(img).enhance(1.4)
         img = ImageEnhance.Sharpness(img).enhance(2.2)
         img = img.filter(ImageFilter.SHARPEN)
@@ -126,16 +124,14 @@ def get_obito_ansi_image(width=46, height=26):
         return None
 
 def display_banner():
-    obito_img_text = get_obito_ansi_image(width=46, height=26)
+    obito_img_text = get_obito_ansi_image(width=44, height=24)
     
     banner_text = Text()
-    banner_text.append("\n  ⚔️  OBITO UCHIHA  ⚔️\n", style="bold red")
-    banner_text.append("  « KAMUI MP4 DOWNLOADER »\n", style="bold yellow")
-    banner_text.append("  ───────────────────────────────────\n", style="dim red")
-    banner_text.append("  ❝ Bu dünyadaki tüm videoları\n", style="italic bright_white")
-    banner_text.append("     Kamui ile Masaüstüne çek! ❞\n\n", style="italic bright_white")
-    banner_text.append("  🍥 YouTube • TikTok • Twitter • Insta\n", style="bold cyan")
-    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Devrede\n", style="bold green")
+    banner_text.append("\n  🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ\n", style="bold yellow")
+    banner_text.append("  ──────────────────────────────────────────\n", style="dim cyan")
+    banner_text.append("  📺 YouTube • TikTok • Twitter (X) • Instagram\n\n", style="bold white")
+    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Desteği\n", style="bold green")
+    banner_text.append("  🎯 En Yüksek Kalite MP4 Otomatik Birleştirme\n", style="bold cyan")
     
     if obito_img_text:
         grid = Table.grid(padding=(0, 2))
@@ -146,13 +142,13 @@ def display_banner():
         
     panel = Panel(
         Align.center(content),
-        title="[bold red]🍥 NARUTO SHIPPUDEN • OBITO UCHIHA EDITION 🍥[/bold red]",
-        subtitle="[dim red]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim red]",
-        border_style="bright_red",
+        title="[bold cyan]🎬 MP4 DOWNLOADER[/bold cyan]",
+        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
+        border_style="bright_blue",
         padding=(1, 1)
     )
     console.print(panel)
-    console.print(f"[dim]📁 Kamui Hedefi (Masaüstü): [bold underline red]{DOWNLOAD_DIR}[/bold underline red][/dim]\n")
+    console.print(f"[dim]📁 Kayıt Yeri: [bold underline]{DOWNLOAD_DIR}[/bold underline][/dim]\n")
 
 def download_single_video(url: str):
     """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
@@ -160,11 +156,11 @@ def download_single_video(url: str):
     ffmpeg_exe = get_ffmpeg_path()
     
     console.print(f"\n[{color}]● Platform:[/{color}] [bold {color}]{platform}[/bold {color}]")
-    console.print("[dim red]👁️ Sharingan aktif... Video bilgileri çekiliyor...[/dim red]")
+    console.print("[dim]⏳ Video bilgileri alınıyor...[/dim]")
     
     progress = Progress(
-        TextColumn("[bold red]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None, complete_style="bold red", finished_style="bold green"),
+        TextColumn("[bold blue]{task.fields[filename]}", justify="left"),
+        BarColumn(bar_width=None),
         "[progress.percentage]{task.percentage:>3.1f}%",
         "•",
         FileSizeColumn(),
@@ -244,8 +240,8 @@ def download_single_video(url: str):
             resolution = info.get('resolution') or f"{info.get('width', '?')}x{info.get('height', '?')}"
             
             # Bilgi Kartı
-            table = Table(title="🌀 Kamui Hedef Detayları", show_header=False, border_style="red", padding=(0, 1))
-            table.add_column("Özellik", style="bold red", width=14)
+            table = Table(title="📹 Video Detayları", show_header=False, border_style="blue", padding=(0, 1))
+            table.add_column("Özellik", style="bold yellow", width=14)
             table.add_column("Değer", style="white")
             
             table.add_row("Başlık", str(title))
@@ -254,7 +250,7 @@ def download_single_video(url: str):
             table.add_row("Çözünürlük", str(resolution))
             
             console.print(table)
-            console.print("[bold red]🌀 Kamui başlatılıyor... Video boyuttan çekiliyor...[/bold red]\n")
+            console.print("[bold green]⬇ İndirme işlemi başlatılıyor...[/bold green]\n")
             
             download_result = ydl.extract_info(url, download=True)
             
@@ -265,15 +261,15 @@ def download_single_video(url: str):
                 if not saved_file_name.endswith('.mp4'):
                     saved_file_name = os.path.splitext(saved_file_name)[0] + '.mp4'
 
-        console.print("\n[bold red]═════════════════════════════════════════════════════════════[/bold red]")
-        console.print("[bold red]✓ KAMUI TAMAMLANDI! Video Masaüstüne Işınlandı! 🌀🔥[/bold red]")
+        console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
+        console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
         if saved_file_name and os.path.exists(saved_file_name):
             file_size_mb = os.path.getsize(saved_file_name) / (1024 * 1024)
             console.print(f"[bold white]Dosya:[/bold white] [cyan]{os.path.basename(saved_file_name)}[/cyan] ({file_size_mb:.2f} MB)")
-            console.print(f"[bold white]Konum:[/bold white] [dim red]{saved_file_name}[/dim red]")
+            console.print(f"[bold white]Konum:[/bold white] [dim]{saved_file_name}[/dim]")
         else:
             console.print(f"[bold white]Konum:[/bold white] [cyan]{DOWNLOAD_DIR}[/cyan]")
-        console.print("[bold red]═════════════════════════════════════════════════════════════[/bold red]\n")
+        console.print("[bold green]════════════════════════════════════════════════════════════[/bold green]\n")
 
     except yt_dlp.utils.DownloadError as de:
         err_msg = str(de)
@@ -287,13 +283,13 @@ def download_single_video(url: str):
 
 def download_multiple_videos(urls: list[str]):
     """Birden fazla video linkini eşzamanlı/paralel indirir."""
-    console.print(f"\n[bold red]🌀 Kamui Çoklu Vorteks Aktif: {len(urls)} video aynı anda çekiliyor...[/bold red]\n")
+    console.print(f"\n[bold cyan]⚡ {len(urls)} adet video eşzamanlı olarak indiriliyor...[/bold cyan]\n")
     
     multi_progress = Progress(
         SpinnerColumn(),
-        TextColumn("[bold red]{task.fields[status]}", justify="left"),
+        TextColumn("[bold cyan]{task.fields[status]}", justify="left"),
         TextColumn("[bold white]{task.description}"),
-        BarColumn(bar_width=25, complete_style="bold red", finished_style="bold green"),
+        BarColumn(bar_width=25),
         "[progress.percentage]{task.percentage:>3.1f}%",
         "•",
         FileSizeColumn(),
@@ -366,7 +362,7 @@ def download_multiple_videos(urls: list[str]):
         with ThreadPoolExecutor(max_workers=5) as executor:
             list(executor.map(worker, urls))
             
-    console.print("\n[bold red]✓ Kamui Vorteks tamamlandı! Tüm videolar Masaüstüne ışınlandı.[/bold red]\n")
+    console.print("\n[bold green]✓ Tüm videolar başarıyla indirildi ve Masaüstüne kaydedildi.[/bold green]\n")
 
 def process_input(user_input: str):
     """Kullanıcının girdiği komut veya linkleri işler."""
@@ -403,18 +399,18 @@ def main():
     if not ffmpeg_exe:
         console.print("[yellow]⚠️ Uyarı: FFmpeg motoru bulunamadı. Bazı 1080p/4K videolarda ses birleştirme sınırlı olabilir.[/yellow]\n")
     else:
-        console.print("[bold red]✓ FFmpeg Kamui motoru devrede.[/bold red]\n")
+        console.print("[green]✓ FFmpeg video motoru aktif.[/green]\n")
 
     while True:
         try:
-            user_input = Prompt.ask("[bold red]👁️ Obito Link Bekliyor[/bold red] [bold yellow]>[/bold yellow] [dim]('q'=çıkış, 'klasor'=masaüstü, 'cls'=temizle)[/dim]").strip()
+            user_input = Prompt.ask("[bold yellow]📥 Video linki yapıştırın[/bold yellow] [dim]('q'=çıkış, 'klasor'=masaüstü, 'cls'=temizle)[/dim]").strip()
             
             if not user_input:
                 continue
                 
             cmd = user_input.lower()
             if cmd in ['q', 'exit', 'quit', 'cikis', 'çıkış']:
-                console.print("\n[bold red]❝ Bu dünya bir yanılsamadan ibaret... ❞ Güle güle! 👋[/bold red]\n")
+                console.print("\n[bold cyan]Güle güle! Görüşmek üzere 👋[/bold cyan]\n")
                 break
             elif cmd in ['klasor', 'klasör', 'open', 'desktop', 'masaustu', 'masaüstü']:
                 open_download_folder()
@@ -427,7 +423,7 @@ def main():
             process_input(user_input)
             
         except (KeyboardInterrupt, EOFError):
-            console.print("\n\n[bold red]İşlem durduruldu. Kamui kapatıldı. 👋[/bold red]\n")
+            console.print("\n\n[bold cyan]İşlem durduruldu. Görüşmek üzere 👋[/bold cyan]\n")
             break
         except Exception as e:
             console.print(f"\n[bold red]Hata: {e}[/bold red]\n")

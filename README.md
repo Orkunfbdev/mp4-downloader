@@ -1,13 +1,11 @@
 <div align="center">
 
-# 🍥 Obito Uchiha • Kamui MP4 Downloader 🍥
+# 🎬 MP4 Downloader (Tüm Platformlar Video İndirici)
 
-<img src="assets/obito.jpg" width="220" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(255,0,0,0.4);" />
-
-### ❝ *Bu dünyadaki tüm videoları Kamui boyutuyla Masaüstüne çek!* ❞
+<img src="assets/obito.jpg" width="220" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);" />
 
 **YouTube • TikTok • Twitter (X) • Instagram • 1000+ Web Sitesi**  
-*Eşzamanlı Çoklu İndirme & Yüksek Kalite MP4*
+*Eşzamanlı Çoklu İndirme & En Yüksek Kalite MP4*
 
 ---
 
@@ -31,10 +29,10 @@ orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 
 ## 🌟 Özellikler
 
-1. **🍥 Obito Uchiha Temalı Özel Terminal:** Terminal açıldığında Obito portresi ve Kamui renkleriyle görsel şölen.
+1. **🎬 Şık Terminal Arayüzü:** Renkli ve modern konsol tasarımı.
 2. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
 3. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
-4. **📁 Temiz Masaüstü Entegrasyonu:** Geçici dosyalar sistem önbelleğinde işlenir, bitmiş `.mp4` doğrudan **Masaüstüne** iner.
+4. **📁 Doğrudan Masaüstü Kaydı:** İndirilen MP4 videoları doğrudan **Masaüstünüze** kaydedilir.
 
 ---
 
