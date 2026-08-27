@@ -4,21 +4,18 @@ YouTube, TikTok, Twitter (X), Instagram, Facebook, Reddit ve 1000+ web sitesinde
 
 ---
 
-## ⚡ Hızlı Kullanım (Tek Kelimeyle Başlat)
+## ⚡ Hızlı Kullanım (Tek Komutla Başlat)
 
 Terminalde hangi klasörde olursanız olun direkt şu komutu yazarak başlatabilirsiniz:
 
 ```bash
-indir
+orkunfb indir
 ```
-*veya*
-```bash
-mp4
-```
+*(veya kısaca `indir` / `mp4`)*
 
 Doğrudan link ile indirmek için:
 ```bash
-indir https://youtube.com/watch?v=... https://tiktok.com/...
+orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
 ```
 
 ---
