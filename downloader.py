@@ -129,9 +129,12 @@ def display_banner():
     banner_text = Text()
     banner_text.append("\n  🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ\n", style="bold yellow")
     banner_text.append("  ──────────────────────────────────────────\n", style="dim cyan")
-    banner_text.append("  📺 YouTube • TikTok • Twitter (X) • Instagram\n\n", style="bold white")
-    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Desteği\n", style="bold green")
-    banner_text.append("  🎯 En Yüksek Kalite MP4 Otomatik Birleştirme\n", style="bold cyan")
+    banner_text.append("  📺 YouTube • TikTok • Twitter (X) • Instagram\n", style="bold white")
+    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Devrede\n", style="bold green")
+    banner_text.append("  🎯 En Yüksek Kalite MP4 Otomatik Birleştirme\n\n", style="bold cyan")
+    banner_text.append("  💡 Anime & Film Siteleri İçin:\n", style="bold yellow")
+    banner_text.append("     Sitede F12 -> Ağ (Network) -> 'm3u8' linkini\n", style="white")
+    banner_text.append("     kopyalayıp buraya yapıştırmanız yeterlidir.\n", style="green")
     
     if obito_img_text:
         grid = Table.grid(padding=(0, 2))
@@ -143,10 +146,12 @@ def display_banner():
     panel = Panel(
         Align.center(content),
         title="[bold cyan]🎬 MP4 DOWNLOADER[/bold cyan]",
+        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
         border_style="bright_blue",
         padding=(1, 1)
     )
     console.print(panel)
+    console.print(f"[dim]📁 Kayıt Yeri: [bold underline cyan]{DOWNLOAD_DIR}[/bold underline cyan][/dim]\n")
 
 def show_anime_guide():
     """Anime ve film sitelerinden kolayca video indirme rehberini gösterir."""
