@@ -50,8 +50,8 @@ def build(onefile=True):
         "--name", "orkunfb",
         "--console",
         "--collect-all", "rich",
-        "--collect-submodules", "yt_dlp",
-        "--collect-submodules", "curl_cffi",
+        "--collect-all", "yt_dlp",
+        "--collect-all", "curl_cffi",
     ]
     
     if icon_path.exists():

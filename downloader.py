@@ -240,6 +240,71 @@ def show_anime_guide():
     console.print(panel)
     console.print("")
 
+def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, browser_cookies: str = None) -> dict:
+    """Tüm platformlar ve YouTube için en güncel, sağlam indirme parametrelerini üretir."""
+    ffmpeg = ffmpeg_exe or get_ffmpeg_path()
+    
+    opts = {
+        'paths': {
+            'home': str(DOWNLOAD_DIR),
+            'temp': str(TEMP_DIR),
+        },
+        # En yüksek kaliteli video ve sesi seçer (gerekirse MP4 içine birleştirir)
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
+        'outtmpl': '%(title).120B [%(id)s].%(ext)s',
+        'merge_output_format': 'mp4',
+        'noplaylist': True,
+        'retries': 10,
+        'fragment_retries': 10,
+        'file_access_retries': 5,
+        'socket_timeout': 30,
+        'windowsfilenames': True,
+        'overwrites': True,
+        'nocheckcertificate': True,
+        'quiet': True,
+        'no_warnings': True,
+        'noprogress': True,
+        'ignoreerrors': False,
+        # YouTube 2025/2026 n-sig & imza doğrulamasını çözmek için JS çalışma ortamları ve GitHub ejs kütüphanesi
+        'remote_components': ['ejs:github'],
+        'js_runtimes': {'deno': {}, 'node': {}, 'quickjs': {}},
+        # Birleştirilen MP4 dosyasında sesin tüm cihazlarda (Windows Media Player, TV, telefon) çalması için AAC dönüştürme
+        'postprocessor_args': {
+            'Merger': ['-c:v', 'copy', '-c:a', 'aac']
+        },
+        # YouTube için çoklu istemci fallback zinciri (Tek istemci takılırsa diğerine geçer)
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['default', 'web', 'android', 'ios', 'mweb'],
+                'player_skip': ['configs', 'webpage'],
+            },
+            'youtubetab': {
+                'skip': ['authcheck'],
+            }
+        },
+    }
+    
+    if progress_hook:
+        opts['progress_hooks'] = [progress_hook]
+        
+    if ffmpeg:
+        opts['ffmpeg_location'] = ffmpeg
+        
+    if browser_cookies:
+        opts['cookiesfrombrowser'] = (browser_cookies, )
+        
+    try:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+        opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+    except Exception:
+        pass
+        
+    url_lower = url.lower()
+    if any(p in url_lower for p in ['tiktok.com', 'instagram.com', 'twitter.com', 'x.com', 'fb.watch', 'facebook.com', 'pinterest.com', 'pin.it']):
+        opts['format'] = 'best[ext=mp4]/best'
+        
+    return opts
+
 def download_single_video(url: str):
     """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
     platform, color = detect_platform(url)
@@ -279,7 +344,7 @@ def download_single_video(url: str):
                 progress.start()
             
             now = time.time()
-            # 16 FPS sınır (her 0.06s'de bir çizim), CPU %100 yükünü ve terminal donmasını engeller
+            # 16 FPS sınır (her 0.06s'de bir çizim), CPU yükünü ve konsol donmasını engeller
             if total_bytes > 0 and (now - last_update_time > 0.06 or downloaded >= total_bytes):
                 last_update_time = now
                 progress.update(task_id, total=total_bytes, completed=downloaded, filename=filename)
@@ -287,66 +352,56 @@ def download_single_video(url: str):
             if task_id is not None:
                 progress.update(task_id, completed=progress.tasks[task_id].total)
                 progress.stop()
-    
-    ydl_opts = {
-        'paths': {
-            'home': str(DOWNLOAD_DIR),
-            'temp': str(TEMP_DIR),
-        },
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
-        'outtmpl': '%(title).120B [%(id)s].%(ext)s',
-        'merge_output_format': 'mp4',
-        'progress_hooks': [yt_progress_hook],
-        'quiet': True,
-        'no_warnings': True,
-        'noprogress': True,
-        'ignoreerrors': False,
-        'windowsfilenames': True,
-        'overwrites': True,
-        'nocheckcertificate': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
-        },
-    }
-    
-    try:
-        from yt_dlp.networking.impersonate import ImpersonateTarget
-        ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
-    except Exception:
-        pass
-    
-    if ffmpeg_exe:
-        ydl_opts['ffmpeg_location'] = ffmpeg_exe
 
-    if "tiktok.com" in url.lower():
-        ydl_opts['format'] = 'best[ext=mp4]/best'
-    elif "instagram.com" in url.lower():
-        ydl_opts['format'] = 'best[ext=mp4]/best'
-    elif "twitter.com" in url.lower() or "x.com" in url.lower():
-        ydl_opts['format'] = 'best[ext=mp4]/best'
+    def run_download(cookies_browser: str = None):
+        opts = build_ydl_options(url, progress_hook=yt_progress_hook, ffmpeg_exe=ffmpeg_exe, browser_cookies=cookies_browser)
+        import yt_dlp
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            res = ydl.extract_info(url, download=True)
+            return res, ydl
 
     saved_file_name = ""
     
     try:
         import yt_dlp
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            download_result = ydl.extract_info(url, download=True)
-            if not download_result:
-                console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
-                return
-            
-            title = download_result.get('title', 'Bilinmeyen Video')
-            uploader = download_result.get('uploader') or download_result.get('channel') or download_result.get('creator') or 'Bilinmiyor'
-            duration = format_duration(download_result.get('duration'))
-            resolution = download_result.get('resolution') or f"{download_result.get('width', '?')}x{download_result.get('height', '?')}"
-            
-            if 'requested_downloads' in download_result and download_result['requested_downloads']:
-                saved_file_name = download_result['requested_downloads'][0].get('filepath', '')
+        download_result = None
+        ydl = None
+        
+        try:
+            download_result, ydl = run_download()
+        except yt_dlp.utils.DownloadError as de:
+            err_msg = str(de)
+            # Bot doğrulaması veya oturum açma gereksinimi varsa tarayıcı çerezleriyle otomatik kurtar
+            if any(k in err_msg.lower() for k in ["sign in", "bot", "login", "private", "age", "confirm your age"]):
+                console.print("[yellow]⚠️ Giriş/Bot doğrulaması gerekti, tarayıcı oturumuyla deneniyor...[/yellow]")
+                recovered = False
+                for b in ['chrome', 'edge', 'brave', 'firefox', 'opera']:
+                    try:
+                        download_result, ydl = run_download(cookies_browser=b)
+                        recovered = True
+                        break
+                    except Exception:
+                        continue
+                if not recovered:
+                    raise de
             else:
-                saved_file_name = ydl.prepare_filename(download_result)
-                if not saved_file_name.endswith('.mp4'):
-                    saved_file_name = os.path.splitext(saved_file_name)[0] + '.mp4'
+                raise de
+                
+        if not download_result:
+            console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
+            return
+            
+        title = download_result.get('title', 'Bilinmeyen Video')
+        uploader = download_result.get('uploader') or download_result.get('channel') or download_result.get('creator') or 'Bilinmiyor'
+        duration = format_duration(download_result.get('duration'))
+        resolution = download_result.get('resolution') or f"{download_result.get('width', '?')}x{download_result.get('height', '?')}"
+        
+        if 'requested_downloads' in download_result and download_result['requested_downloads']:
+            saved_file_name = download_result['requested_downloads'][0].get('filepath', '')
+        else:
+            saved_file_name = ydl.prepare_filename(download_result)
+            if not saved_file_name.endswith('.mp4'):
+                saved_file_name = os.path.splitext(saved_file_name)[0] + '.mp4'
 
         console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
         console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
@@ -415,34 +470,7 @@ def download_multiple_videos(urls: list[str]):
             elif d['status'] == 'finished':
                 multi_progress.update(task_id, status="🔄 İşleniyor...")
         
-        opts = {
-            'paths': {'home': str(DOWNLOAD_DIR), 'temp': str(TEMP_DIR)},
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
-            'outtmpl': '%(title).120B [%(id)s].%(ext)s',
-            'merge_output_format': 'mp4',
-            'progress_hooks': [yt_hook],
-            'quiet': True,
-            'no_warnings': True,
-            'noprogress': True,
-            'ignoreerrors': False,
-            'windowsfilenames': True,
-            'overwrites': True,
-            'nocheckcertificate': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
-            },
-        }
-        try:
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-            opts['impersonate'] = ImpersonateTarget.from_str('chrome')
-        except Exception:
-            pass
-        if ffmpeg_exe:
-            opts['ffmpeg_location'] = ffmpeg_exe
-        if "tiktok.com" in url.lower() or "instagram.com" in url.lower() or "twitter.com" in url.lower() or "x.com" in url.lower():
-            opts['format'] = 'best[ext=mp4]/best'
-            
+        opts = build_ydl_options(url, progress_hook=yt_hook, ffmpeg_exe=ffmpeg_exe)
         try:
             import yt_dlp
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -455,8 +483,22 @@ def download_multiple_videos(urls: list[str]):
                     status="[bold green]✓ Tamamlandı[/bold green]",
                     completed=multi_progress.tasks[task_id].total or 100
                 )
-        except Exception as e:
-            multi_progress.update(task_id, status="[bold red]❌ Hata[/bold red]", completed=100)
+        except Exception:
+            # Oturum gerektiren videolar için tarayıcı çerezi ile kurtarma
+            try:
+                opts_cookie = build_ydl_options(url, progress_hook=yt_hook, ffmpeg_exe=ffmpeg_exe, browser_cookies='chrome')
+                with yt_dlp.YoutubeDL(opts_cookie) as ydl:
+                    download_result = ydl.extract_info(url, download=True)
+                    title = download_result.get('title', 'Video') if download_result else 'Video'
+                    short_title = title if len(title) <= 25 else title[:22] + "..."
+                    multi_progress.update(
+                        task_id,
+                        description=f"[{color}][{platform}][/{color}] {short_title}",
+                        status="[bold green]✓ Tamamlandı[/bold green]",
+                        completed=multi_progress.tasks[task_id].total or 100
+                    )
+            except Exception:
+                multi_progress.update(task_id, status="[bold red]❌ Hata[/bold red]", completed=100)
     
     with multi_progress:
         with ThreadPoolExecutor(max_workers=5) as executor:
