@@ -1,15 +1,24 @@
 import os
 import sys
 import time
+import re
+import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-# Windows UTF-8 / Türkçe karakter desteği
+# Windows UTF-8 / Türkçe karakter desteği ve Düşük Sistem Optimizasyonu
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
         sys.stdin.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+    try:
+        import ctypes
+        # BELOW_NORMAL_PRIORITY_CLASS (0x00004000)
+        # En eski/zayıf bilgisayarlarda bile Windows arayüzünün, farenin veya tarayıcının takılmasını önler
+        ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00004000)
     except Exception:
         pass
 
@@ -26,44 +35,6 @@ except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
     sys.exit(1)
 
-# FFmpeg yolunu belirle ve önbellekle
-# FFmpeg yolunu belirle ve arkaplanda önbellekle
-_CACHED_FFMPEG_PATH = None
-
-def _resolve_ffmpeg():
-    global _CACHED_FFMPEG_PATH
-    if _CACHED_FFMPEG_PATH is not None:
-        return
-    import shutil
-    w = shutil.which("ffmpeg")
-    if w:
-        _CACHED_FFMPEG_PATH = w
-        return
-    for p in [BASE_DIR / "ffmpeg.exe", Path.cwd() / "ffmpeg.exe"]:
-        if p.exists():
-            _CACHED_FFMPEG_PATH = str(p)
-            return
-    try:
-        import imageio_ffmpeg
-        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        if os.path.exists(ffmpeg_exe):
-            _CACHED_FFMPEG_PATH = ffmpeg_exe
-            return
-    except Exception:
-        pass
-    _CACHED_FFMPEG_PATH = ""
-
-def get_ffmpeg_path():
-    global _CACHED_FFMPEG_PATH
-    if _CACHED_FFMPEG_PATH is None:
-        _resolve_ffmpeg()
-    return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
-
-def start_background_ffmpeg_check():
-    import threading
-    t = threading.Thread(target=_resolve_ffmpeg, daemon=True)
-    t.start()
-
 console = Console(force_terminal=True, highlight=False)
 
 # Dizinler
@@ -79,6 +50,69 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 TEMP_DIR = Path(os.environ.get('TEMP', str(DOWNLOAD_DIR))) / "mp4_downloader_temp"
 TEMP_DIR.mkdir(exist_ok=True)
+
+# FFmpeg yolunu belirle ve arkaplanda önbellekle
+_CACHED_FFMPEG_PATH = None
+
+def _ensure_ffmpeg_in_path(ffmpeg_file: str):
+    """FFmpeg'in bulunduğu klasörü PATH ortam değişkenine ekler (yt-dlp kısmi kesme için zorunlu)."""
+    try:
+        p = str(Path(ffmpeg_file).parent.resolve())
+        curr_path = os.environ.get("PATH", "")
+        if p.lower() not in curr_path.lower():
+            os.environ["PATH"] = p + os.pathsep + curr_path
+    except Exception:
+        pass
+
+def _resolve_ffmpeg():
+    global _CACHED_FFMPEG_PATH
+    if _CACHED_FFMPEG_PATH is not None:
+        return
+    import shutil
+    w = shutil.which("ffmpeg")
+    if w:
+        _CACHED_FFMPEG_PATH = w
+        _ensure_ffmpeg_in_path(w)
+        return
+    for p in [BASE_DIR / "ffmpeg.exe", Path.cwd() / "ffmpeg.exe", TEMP_DIR / "ffmpeg.exe"]:
+        if p.exists():
+            _CACHED_FFMPEG_PATH = str(p)
+            _ensure_ffmpeg_in_path(str(p))
+            return
+    try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if os.path.exists(ffmpeg_exe):
+            exe_dir = Path(ffmpeg_exe).parent
+            target_alias = exe_dir / "ffmpeg.exe"
+            if not target_alias.exists():
+                try:
+                    shutil.copyfile(ffmpeg_exe, target_alias)
+                except Exception:
+                    temp_alias = TEMP_DIR / "ffmpeg.exe"
+                    try:
+                        shutil.copyfile(ffmpeg_exe, temp_alias)
+                        target_alias = temp_alias
+                    except Exception:
+                        pass
+            chosen = str(target_alias) if target_alias.exists() else ffmpeg_exe
+            _CACHED_FFMPEG_PATH = chosen
+            _ensure_ffmpeg_in_path(chosen)
+            return
+    except Exception:
+        pass
+    _CACHED_FFMPEG_PATH = ""
+
+def get_ffmpeg_path():
+    global _CACHED_FFMPEG_PATH
+    if _CACHED_FFMPEG_PATH is None:
+        _resolve_ffmpeg()
+    return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
+
+def start_background_ffmpeg_check():
+    import threading
+    t = threading.Thread(target=_resolve_ffmpeg, daemon=True)
+    t.start()
 
 def detect_platform(url: str) -> tuple[str, str]:
     """Linkten platformu ve uygun renk bilgisini döner."""
@@ -103,14 +137,109 @@ def detect_platform(url: str) -> tuple[str, str]:
         return "Web / Diğer", "green"
 
 def format_duration(seconds):
-    if not seconds:
+    """Saniyeyi kullanıcı dostu Saat:Dakika:Saniye biçimine çevirir."""
+    if seconds is None:
         return "Bilinmiyor"
+    if seconds == float('inf'):
+        return "Sonuna Kadar"
     seconds = int(seconds)
     mins, secs = divmod(seconds, 60)
     hours, mins = divmod(mins, 60)
     if hours > 0:
         return f"{hours}:{mins:02d}:{secs:02d}"
     return f"{mins:02d}:{secs:02d}"
+
+def format_duration_compact(seconds):
+    """Dosya isimlerine uygun iki nokta (:) içermeyen süre etiketi döner."""
+    if seconds is None or seconds == float('inf'):
+        return "Son"
+    seconds = int(seconds)
+    mins, secs = divmod(seconds, 60)
+    hours, mins = divmod(mins, 60)
+    if hours > 0:
+        return f"{hours:02d}.{mins:02d}.{secs:02d}"
+    return f"{mins:02d}.{secs:02d}"
+
+def parse_time_component(s: str, default_unit: str = 's') -> float:
+    """Zaman bileşenini (01:20:00, 15:30, 2saat, 2h, 45dk vb.) saniyeye çevirir."""
+    s = s.strip().lower()
+    if not s or s in ['bas', 'baslangic', 'start', '0', '00', '00:00', '00:00:00']:
+        return 0.0
+    if s in ['son', 'bitis', 'end', 'inf', 'infinity']:
+        return float('inf')
+
+    # Birim eklerini kontrol et
+    if s.endswith(('saat', 'h')):
+        num = float(re.sub(r'[^\d.]', '', s) or 0)
+        return num * 3600
+    if s.endswith(('dk', 'dakika', 'min', 'm')):
+        num = float(re.sub(r'[^\d.]', '', s) or 0)
+        return num * 60
+    if s.endswith(('sn', 'saniye', 'sec', 's')):
+        num = float(re.sub(r'[^\d.]', '', s) or 0)
+        return num
+
+    parts = s.split(':')
+    if len(parts) == 3:  # SS:DD:SS
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+    elif len(parts) == 2:  # DD:SS
+        return int(parts[0]) * 60 + float(parts[1])
+    elif len(parts) == 1:
+        val = float(parts[0])
+        if default_unit == 'h':
+            return val * 3600
+        elif default_unit == 'm':
+            return val * 60
+        return val
+    return 0.0
+
+def parse_time_range(raw_str: str, total_duration: float = None) -> tuple[float, float] | None:
+    """Kullanıcının girdiği zaman aralığını (01:00:00-02:00:00, 2-3, 10:00-20:00 vb.) saniye çifti olarak çözer."""
+    if not raw_str or not raw_str.strip():
+        return None
+    raw = raw_str.strip()
+    raw = re.sub(r'\s+ile\s+', '-', raw, flags=re.I)
+    raw = re.sub(r'\s+-\s+', '-', raw)
+    raw = re.sub(r'\s+to\s+', '-', raw, flags=re.I)
+
+    if '-' in raw:
+        parts = raw.split('-', 1)
+        start_part, end_part = parts[0], parts[1]
+    else:
+        parts = raw.split()
+        if len(parts) == 2:
+            start_part, end_part = parts[0], parts[1]
+        else:
+            return None
+
+    def is_simple_num(x):
+        try:
+            return True, float(x.strip())
+        except Exception:
+            return False, 0.0
+
+    s_is_num, s_val = is_simple_num(start_part)
+    e_is_num, e_val = is_simple_num(end_part)
+
+    default_unit = 's'
+    # Video 1 saatten uzunsa ve kullanıcı sade rakam girdiyse (Örn: '2-3' veya '2 ile 3') saat olarak yorumla
+    if s_is_num and e_is_num:
+        if total_duration and total_duration >= 3600:
+            if s_val <= 48 and e_val <= 48:
+                default_unit = 'h'
+        elif not total_duration and s_val <= 12 and e_val <= 12:
+            default_unit = 'h'
+
+    start_sec = parse_time_component(start_part, default_unit=default_unit)
+    end_sec = parse_time_component(end_part, default_unit=default_unit)
+
+    if total_duration and end_sec == float('inf'):
+        end_sec = float(total_duration)
+
+    if start_sec >= end_sec:
+        return None
+
+    return start_sec, end_sec
 
 def open_download_folder():
     """Masaüstü klasörünü Windows Gezgini'nde açar."""
@@ -120,108 +249,60 @@ def open_download_folder():
     except Exception as e:
         console.print(f"[red]Klasör açılamadı: {e}[/red]\n")
 
-# Pre-rendered & compressed Obito pixel art (Pillow gerektirmez, 0.00s açılış)
-OBITO_B64 = (
-    "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"
-)
+def _find_current_download_part(directories, started_at: float):
+    """Return the newest partial file created or updated for this download."""
+    latest_path = None
+    latest_mtime = started_at
+    for directory in directories:
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if not entry.name.endswith(('.part', '.ytdl')) or not entry.is_file():
+                        continue
+                    try:
+                        mtime = entry.stat().st_mtime
+                    except OSError:
+                        continue
+                    if mtime >= started_at and mtime > latest_mtime:
+                        latest_path = Path(entry.path)
+                        latest_mtime = mtime
+        except OSError:
+            continue
+    return latest_path
 
-_CACHED_OBITO_TEXT = None
-def get_obito_ansi_image():
-    """Önceden optimize edilmiş Obito ANSI görselini anında çözer (0.00s)."""
-    global _CACHED_OBITO_TEXT
-    if _CACHED_OBITO_TEXT is not None:
-        return _CACHED_OBITO_TEXT
-    try:
-        import zlib
-        import base64
-        raw_ansi = zlib.decompress(base64.b64decode(OBITO_B64.encode('ascii'))).decode('utf-8')
-        _CACHED_OBITO_TEXT = Text.from_ansi(raw_ansi)
-        return _CACHED_OBITO_TEXT
-    except Exception:
-        return None
+def _format_download_rate(speed_mb: float, idle_seconds: float) -> str:
+    if idle_seconds >= 3:
+        return f"Veri bekleniyor ({int(idle_seconds)} sn)"
+    if speed_mb > 0:
+        return f"{speed_mb:.1f} MB/s"
+    return "Bağlanıyor..."
 
 def display_banner():
-    obito_img_text = get_obito_ansi_image()
-    
-    banner_text = Text()
-    banner_text.append("\n  🎬 TÜM PLATFORMLAR MP4 İNDİRİCİ\n", style="bold yellow")
-    banner_text.append("  ──────────────────────────────────────────\n", style="dim cyan")
-    banner_text.append("  📺 YouTube • TikTok • Twitter (X) • Instagram\n", style="bold white")
-    banner_text.append("  ⚡ Eşzamanlı Çoklu İndirme Devrede\n", style="bold green")
-    banner_text.append("  🎯 En Yüksek Kalite MP4 Otomatik Birleştirme\n\n", style="bold cyan")
-    banner_text.append("  💡 Anime & Film Siteleri İçin:\n", style="bold yellow")
-    banner_text.append("     Sitede F12 -> Ağ (Network) -> 'm3u8' linkini\n", style="white")
-    banner_text.append("     kopyalayıp buraya yapıştırmanız yeterlidir.\n", style="green")
-    
-    if obito_img_text:
-        grid = Table.grid(padding=(0, 2))
-        grid.add_row(obito_img_text, banner_text)
-        content = grid
-    else:
-        content = banner_text
-        
+    """Modern, ultra hafif ve hiçbir sistemde kasma/taşma yapmayan şık başlık."""
+    grid = Table(show_header=False, box=None, padding=(0, 0))
+    grid.add_column()
+    grid.add_row("[bold cyan]🎬 ORKUNFB[/bold cyan] [bold white]• MP4 İNDİRİCİ[/bold white] [bold green][0 CPU • Ultra Hızlı][/bold green]")
+    grid.add_row("[dim cyan]──────────────────────────────────────────────────────────────────[/dim cyan]")
+    grid.add_row("[bold white]📺 Platformlar:[/bold white] [cyan]YouTube[/cyan] • [magenta]Twitch[/magenta] • [white]TikTok[/white] • [cyan]X[/cyan] • [magenta]Instagram[/magenta] • [yellow]M3U8[/yellow]")
+    grid.add_row("[bold white]✂️ Kesit İndir:[/bold white] [yellow]Zaman aralığı belirtebilirsiniz[/yellow] [dim]('25dk 48dk', '2-3')[/dim]")
+    grid.add_row("[bold white]⚡ Donanım Dostu:[/bold white] [green]Sıfır CPU / Stream Copy[/green] • [cyan]En Yüksek Kalite[/cyan]")
+    grid.add_row("[dim cyan]──────────────────────────────────────────────────────────────────[/dim cyan]")
+    grid.add_row("[bold yellow]💡 Dizi/Film/Yayın:[/bold yellow] [dim]F12 ➔ Ağ (Network) ➔ 'm3u8' linkini yapıştırın.[/dim]")
+
     panel = Panel(
-        Align.center(content),
+        grid,
         title="[bold cyan]🎬 MP4 DOWNLOADER[/bold cyan]",
-        subtitle="[dim]Çıkış: 'q' • Masaüstünü Aç: 'klasor' • Ekranı Temizle: 'cls'[/dim]",
+        subtitle="[dim]Çıkış: 'q' • Masaüstü: 'klasor' • Temizle: 'cls' • Rehber: 'yardim'[/dim]",
         border_style="bright_blue",
-        padding=(1, 1)
+        padding=(1, 2)
     )
     console.print(panel)
     console.print(f"[dim]📁 Kayıt Yeri: [bold underline cyan]{DOWNLOAD_DIR}[/bold underline cyan][/dim]\n")
 
 def show_anime_guide():
-    """Anime ve film sitelerinden kolayca video indirme rehberini gösterir."""
+    """Anime, dizi/film ve canlı yayınlardan kolayca video indirme rehberini gösterir."""
     guide_text = Text()
-    guide_text.append("🎬 ANİME & DİZİ/FİLM SİTELERİNDEN İNDİRME REHBERİ\n\n", style="bold yellow")
+    guide_text.append("🎬 ANİME, FİLM, DİZİ & CANLI YAYIN İNDİRME REHBERİ\n\n", style="bold yellow")
     guide_text.append("1. F12 Taktigi (%100 Garanti Yöntem):\n", style="bold cyan")
     guide_text.append("   • Sitede F12 tuşuna basın ve 'Ağ' (Network) sekmesine gelin.\n", style="white")
     guide_text.append("   • Filtre kutucuğuna 'm3u8' veya 'mp4' yazın.\n", style="white")
@@ -229,7 +310,13 @@ def show_anime_guide():
     guide_text.append("   • Buraya yapıştırın, otomatik olarak tek parça MP4 olarak iner!\n\n", style="green")
     guide_text.append("2. Player Kaynak Linki Yöntemi:\n", style="bold cyan")
     guide_text.append("   • Videonun altındaki 'Sibnet', 'Vidmoly', 'YourUpload' butonlarına tıklayın.\n", style="white")
-    guide_text.append("   • Video penceresine sağ tıklayıp 'Video Bağlantısını Kopyala' deyin ve buraya yapıştırın.\n", style="white")
+    guide_text.append("   • Video penceresine sağ tıklayıp 'Video Bağlantısını Kopyala' deyin ve buraya yapıştırın.\n\n", style="white")
+    guide_text.append("3. Uzun Yayın & Filmden Aralık (Kesit) İndirme:\n", style="bold cyan")
+    guide_text.append("   • 4-5 saatlik yayınlarda tüm videoyu indirmek saatler sürebilir.\n", style="white")
+    guide_text.append("   • Linki yapıştırdıktan sonra '01:00:00-02:00:00' veya '2-3' yazarak sadece\n", style="white")
+    guide_text.append("     istediğiniz kısmı saniyeler içinde tertemiz MP4 olarak indirebilirsiniz!\n", style="green")
+    guide_text.append("   • Dilerseniz doğrudan tek satırda da yapıştırabilirsiniz:\n", style="white")
+    guide_text.append("     'https://site.com/yayin.m3u8 02:00:00-03:00:00'\n", style="yellow")
     
     panel = Panel(
         guide_text,
@@ -240,7 +327,7 @@ def show_anime_guide():
     console.print(panel)
     console.print("")
 
-def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, browser_cookies: str = None) -> dict:
+def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, browser_cookies: str = None, time_range: tuple = None) -> dict:
     """Tüm platformlar ve YouTube için en güncel, sağlam indirme parametrelerini üretir."""
     ffmpeg = ffmpeg_exe or get_ffmpeg_path()
     
@@ -249,8 +336,8 @@ def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, brow
             'home': str(DOWNLOAD_DIR),
             'temp': str(TEMP_DIR),
         },
-        # En yüksek kaliteli video ve sesi seçer (gerekirse MP4 içine birleştirir)
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best',
+        # En yüksek kaliteli video ve sesi seçer (4K, 2K, 1080p60fps vb.) ve MP4 içine birleştirir
+        'format': 'bestvideo+bestaudio/best',
         'outtmpl': '%(title).120B [%(id)s].%(ext)s',
         'merge_output_format': 'mp4',
         'noplaylist': True,
@@ -265,12 +352,14 @@ def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, brow
         'no_warnings': True,
         'noprogress': True,
         'ignoreerrors': False,
+        # Düşük RAM'li sistemler için optimize edilmiş 64KB bellek tamponu
+        'buffersize': 65536,
         # YouTube 2025/2026 n-sig & imza doğrulamasını çözmek için JS çalışma ortamları ve GitHub ejs kütüphanesi
         'remote_components': ['ejs:github'],
         'js_runtimes': {'deno': {}, 'node': {}, 'quickjs': {}},
-        # Birleştirilen MP4 dosyasında sesin tüm cihazlarda (Windows Media Player, TV, telefon) çalması için AAC dönüştürme
+        # Birleştirilen MP4 dosyasında sesin tüm cihazlarda çalması için AAC, video için sıfır CPU stream copy
         'postprocessor_args': {
-            'Merger': ['-c:v', 'copy', '-c:a', 'aac']
+            'Merger': ['-threads', '2', '-c:v', 'copy', '-c:a', 'aac']
         },
         # YouTube için çoklu istemci fallback zinciri (Tek istemci takılırsa diğerine geçer)
         'extractor_args': {
@@ -284,6 +373,20 @@ def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, brow
         },
     }
     
+    if time_range:
+        import yt_dlp
+        start_sec, end_sec = time_range
+        opts['download_ranges'] = yt_dlp.utils.download_range_func([], [[start_sec, end_sec]])
+        # ÖNEMLİ: force_keyframes_at_cuts = False ve -c copy ile CPU kullanımı %0 olur!
+        # Video yeniden x264 ile CPU'da işlenmez; akış doğrudan kopyalanarak 50 kat hızlı iner.
+        opts['force_keyframes_at_cuts'] = False
+        opts['downloader_args'] = {
+            'ffmpeg': ['-c', 'copy']
+        }
+        s_lbl = format_duration_compact(start_sec)
+        e_lbl = format_duration_compact(end_sec)
+        opts['outtmpl'] = f'%(title).100B [%(id)s] [{s_lbl}-{e_lbl}].%(ext)s'
+        
     if progress_hook:
         opts['progress_hooks'] = [progress_hook]
         
@@ -305,97 +408,250 @@ def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, brow
         
     return opts
 
-def download_single_video(url: str):
-    """Tek bir video için detaylı bilgi kartı ve indirme süreci."""
+def download_single_video(url: str, time_range_input: str = None):
+    """Tek bir video için detaylı bilgi kartı, aralık seçimi ve indirme süreci."""
     platform, color = detect_platform(url)
     ffmpeg_exe = get_ffmpeg_path()
     
     console.print(f"\n[{color}]● Platform:[/{color}] [bold {color}]{platform}[/bold {color}]")
     console.print("[dim]⏳ Video bilgileri alınıyor...[/dim]")
     
+    import yt_dlp
+    
+    # 1. Video bilgilerini çek
+    info_opts = build_ydl_options(url, ffmpeg_exe=ffmpeg_exe)
+    video_info = None
+    
+    try:
+        with yt_dlp.YoutubeDL(info_opts) as ydl:
+            video_info = ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError as de:
+        err_msg = str(de)
+        if any(k in err_msg.lower() for k in ["sign in", "bot", "login", "private", "age", "confirm your age"]):
+            console.print("[yellow]⚠️ Giriş/Bot doğrulaması gerekti, tarayıcı oturumuyla deneniyor...[/yellow]")
+            for b in ['chrome', 'edge', 'brave', 'firefox', 'opera']:
+                try:
+                    cookie_opts = build_ydl_options(url, ffmpeg_exe=ffmpeg_exe, browser_cookies=b)
+                    with yt_dlp.YoutubeDL(cookie_opts) as ydl:
+                        video_info = ydl.extract_info(url, download=False)
+                    info_opts = cookie_opts
+                    break
+                except Exception:
+                    continue
+        if not video_info:
+            console.print(f"[bold red]❌ Video bilgisi alınamadı:[/bold red] {err_msg}\n")
+            return
+    except Exception as e:
+        console.print(f"[bold red]❌ Video bilgisi alınamadı:[/bold red] {e}\n")
+        return
+
+    if not video_info:
+        console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
+        return
+
+    title = video_info.get('title', 'Bilinmeyen Video')
+    uploader = video_info.get('uploader') or video_info.get('channel') or video_info.get('creator') or 'Bilinmiyor'
+    total_duration = video_info.get('duration')
+    duration_str = format_duration(total_duration)
+    resolution = video_info.get('resolution') or f"{video_info.get('width', '?')}x{video_info.get('height', '?')}"
+
+    # Detay kartını göster
+    info_panel = Panel(
+        f"[bold white]🎬 Başlık:[/bold white] [bold yellow]{title}[/bold yellow]\n"
+        f"[bold white]📺 Kanal / Sahip:[/bold white] [white]{uploader}[/white]  •  "
+        f"[bold white]⏱️ Toplam Süre:[/bold white] [bold cyan]{duration_str}[/bold cyan]  •  "
+        f"[bold white]🎯 Kalite:[/bold white] [green]{resolution}[/green]",
+        title=f"[bold {color}]● {platform} Video Detayı[/bold {color}]",
+        border_style=color,
+        padding=(0, 1)
+    )
+    console.print(info_panel)
+
+    # 2. İndirme Tercihi & Zaman aralığı belirleme (kesit indirme)
+    parsed_range = None
+    if time_range_input:
+        parsed_range = parse_time_range(time_range_input, total_duration)
+        if not parsed_range:
+            console.print(f"[bold yellow]⚠️ Belirtilen '{time_range_input}' aralığı anlaşılamadı.[/bold yellow]")
+
+    if not parsed_range and not time_range_input:
+        console.print("\n[bold cyan]✂️ İndirme Türünü Seçin:[/bold cyan]")
+        console.print("  [bold yellow][1][/bold yellow] [bold white]Belirli Bir Zaman Aralığı (Kesit) İndir[/bold white] [dim](Örn: 2 ile 3 arası, 01:00:00-02:00:00)[/dim]")
+        console.print(f"  [bold cyan][2][/bold cyan] [bold white]Videonun Tamamını İndir[/bold white] [dim]({duration_str})[/dim]")
+        console.print("  [bold red][q][/bold red] [bold white]İptal Et / Geri Dön[/bold white]\n")
+
+        while True:
+            choice = Prompt.ask("[bold yellow]👉 Seçiminiz [1/2/q][/bold yellow] [dim](veya doğrudan aralık yazın: '2-3', '01:00:00-02:00:00')[/dim]", default="1").strip()
+            
+            if choice.lower() in ['q', 'iptal', 'cancel', 'vazgec', 'çıkış', 'cikis']:
+                console.print("[yellow]İşlem iptal edildi.[/yellow]\n")
+                return
+
+            if choice == "2" or choice.lower() in ['tumu', 'tamami', 'full']:
+                parsed_range = None
+                break
+
+            # Eğer kullanıcı doğrudan seçim kutusuna '2-3' veya '01:00:00-02:00:00' yazdıysa
+            direct_range = parse_time_range(choice, total_duration)
+            if direct_range:
+                start_sec, end_sec = direct_range
+                if total_duration and start_sec > total_duration:
+                    console.print(f"[bold red]❌ Başlangıç süresi ({format_duration(start_sec)}) video süresinden ({duration_str}) büyük olamaz![/bold red]")
+                    continue
+                parsed_range = direct_range
+                break
+
+            if choice == "1" or not choice:
+                while True:
+                    user_range = Prompt.ask(
+                        "\n[bold cyan]⏱️ İndirilecek aralığı yazın[/bold cyan] [dim](Örn: '01:00:00-02:00:00', '2-3', '10:00-20:00' | İptal: 'q')[/dim]"
+                    ).strip()
+
+                    if user_range.lower() in ['q', 'iptal', 'cancel']:
+                        console.print("[yellow]İşlem iptal edildi.[/yellow]\n")
+                        return
+
+                    if not user_range:
+                        console.print("[yellow]Aralık girmediniz. Tamamı indirilsin mi? (e/h)[/yellow]")
+                        c = Prompt.ask("Tamamı indirilsin mi?", choices=["e", "h"], default="e")
+                        if c == "e":
+                            parsed_range = None
+                            break
+                        else:
+                            continue
+
+                    p_range = parse_time_range(user_range, total_duration)
+                    if p_range:
+                        start_sec, end_sec = p_range
+                        if total_duration and start_sec > total_duration:
+                            console.print(f"[bold red]❌ Başlangıç süresi ({format_duration(start_sec)}) video süresinden ({duration_str}) büyük olamaz![/bold red]")
+                            continue
+                        parsed_range = p_range
+                        break
+                    else:
+                        console.print("[bold red]❌ Geçersiz aralık biçimi! Örnekler: '01:00:00-02:00:00', '2-3', '10:00-20:00'[/bold red]")
+                break
+
+    if parsed_range:
+        start_sec, end_sec = parsed_range
+        dur_diff = (end_sec - start_sec) if end_sec != float('inf') else "Kalan Bölüm"
+        diff_str = format_duration(dur_diff) if isinstance(dur_diff, (int, float)) else dur_diff
+        console.print(
+            f"[bold green]✂️ İndirilecek Kesit:[/bold green] "
+            f"[bold yellow]{format_duration(start_sec)}[/bold yellow] ➔ [bold yellow]{format_duration(end_sec)}[/bold yellow] "
+            f"[dim](Süre: {diff_str})[/dim]\n"
+        )
+        console.print("[dim]⚡ [bold green]Hızlı & 0 CPU Yükü:[/bold green] Kesit re-encode edilmeden doğrudan akıştan kesilerek indiriliyor.[/dim]\n")
+    else:
+        console.print(f"[bold green]⬇ Videonun tamamı indiriliyor...[/bold green] [dim]({duration_str})[/dim]\n")
+
+    console.print("[dim]💡 İndirmeyi iptal etmek için istediğiniz an [bold red]Ctrl+C[/bold red] tuşlayabilirsiniz.[/dim]\n")
+
+    # 3. İlerleme ve Canlı İndirme Monitörü
+    clean_title = os.path.basename(title)
+    short_title = clean_title if len(clean_title) <= 25 else clean_title[:22] + "..."
+    status_label = "✂️ Kesit İndiriliyor" if parsed_range else "⬇ İndiriliyor"
+
     progress = Progress(
-        TextColumn("[bold blue]{task.fields[filename]}", justify="left"),
-        BarColumn(bar_width=None),
-        "[progress.percentage]{task.percentage:>3.1f}%",
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.fields[status]}", justify="left"),
+        TextColumn("[bold blue]{task.fields[filename]}"),
+        BarColumn(bar_width=18),
+        TextColumn("[bold green]{task.fields[size_str]}"),
         "•",
-        FileSizeColumn(),
-        "•",
-        TransferSpeedColumn(),
-        "•",
-        TimeRemainingColumn(),
+        TextColumn("[bold yellow]{task.fields[speed_str]}"),
         console=console,
         transient=False
     )
-    
-    task_id = None
-    last_update_time = 0.0
-    
-    def yt_progress_hook(d):
-        nonlocal task_id, last_update_time
-        if d['status'] == 'downloading':
-            total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-            downloaded = d.get('downloaded_bytes', 0)
-            filename = os.path.basename(d.get('filename', 'Video'))
-            if len(filename) > 30:
-                filename = filename[:27] + "..."
-            
-            if task_id is None:
-                task_id = progress.add_task("download", total=total_bytes, filename=filename)
-                progress.start()
-            
-            now = time.time()
-            # 16 FPS sınır (her 0.06s'de bir çizim), CPU yükünü ve konsol donmasını engeller
-            if total_bytes > 0 and (now - last_update_time > 0.06 or downloaded >= total_bytes):
-                last_update_time = now
-                progress.update(task_id, total=total_bytes, completed=downloaded, filename=filename)
-        elif d['status'] == 'finished':
-            if task_id is not None:
-                progress.update(task_id, completed=progress.tasks[task_id].total)
-                progress.stop()
 
-    def run_download(cookies_browser: str = None):
-        opts = build_ydl_options(url, progress_hook=yt_progress_hook, ffmpeg_exe=ffmpeg_exe, browser_cookies=cookies_browser)
-        import yt_dlp
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            res = ydl.extract_info(url, download=True)
-            return res, ydl
+    task_id = progress.add_task(
+        "download",
+        total=None,
+        status=status_label,
+        filename=short_title,
+        size_str="0.0 MB",
+        speed_str="Bağlanıyor..."
+    )
+
+    stop_monitor = threading.Event()
+    download_started_at = time.time()
+    last_sz = [0.0]
+    last_t = [time.time()]
+    last_growth_time = [time.time()]
+    last_path = [object()]
+
+    def file_monitor():
+        while not stop_monitor.is_set():
+            time.sleep(0.4)
+            try:
+                now = time.time()
+                current_path = _find_current_download_part(
+                    [DOWNLOAD_DIR, TEMP_DIR], download_started_at
+                )
+                latest_size = current_path.stat().st_size if current_path else 0
+                cur_mb = latest_size / (1024 * 1024)
+
+                if current_path != last_path[0]:
+                    speed_mb = 0.0
+                    last_path[0] = current_path
+                    last_sz[0] = cur_mb
+                    last_growth_time[0] = now
+                else:
+                    dt = now - last_t[0]
+                    speed_mb = max(0.0, (cur_mb - last_sz[0]) / dt) if dt > 0 else 0.0
+                    if cur_mb > last_sz[0]:
+                        last_growth_time[0] = now
+                    last_sz[0] = cur_mb
+
+                last_t[0] = now
+                progress.update(
+                    task_id,
+                    size_str=f"{cur_mb:.1f} MB",
+                    speed_str=_format_download_rate(speed_mb, now - last_growth_time[0]),
+                    status=status_label
+                )
+            except Exception:
+                pass
+
+    monitor_thread = threading.Thread(target=file_monitor, daemon=True)
+
+    def yt_progress_hook(d):
+        if d['status'] == 'downloading':
+            tot = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+            done = d.get('downloaded_bytes', 0)
+            cur_mb = done / (1024 * 1024)
+            spd = (d.get('speed') or 0) / (1024 * 1024)
+            update = {
+                'total': tot if tot > 0 else None,
+                'completed': done if tot > 0 else None,
+                'size_str': f"{cur_mb:.1f} MB",
+                'status': status_label,
+            }
+            if spd > 0:
+                update['speed_str'] = f"{spd:.1f} MB/s"
+            progress.update(task_id, **update)
+        elif d['status'] == 'finished':
+            progress.update(task_id, status="[bold green]✓ Birleştiriliyor[/bold green]")
+
+    download_opts = build_ydl_options(
+        url,
+        progress_hook=yt_progress_hook,
+        ffmpeg_exe=ffmpeg_exe,
+        browser_cookies=info_opts.get('cookiesfrombrowser', (None,))[0] if 'cookiesfrombrowser' in info_opts else None,
+        time_range=parsed_range
+    )
 
     saved_file_name = ""
-    
     try:
-        import yt_dlp
-        download_result = None
-        ydl = None
-        
-        try:
-            download_result, ydl = run_download()
-        except yt_dlp.utils.DownloadError as de:
-            err_msg = str(de)
-            # Bot doğrulaması veya oturum açma gereksinimi varsa tarayıcı çerezleriyle otomatik kurtar
-            if any(k in err_msg.lower() for k in ["sign in", "bot", "login", "private", "age", "confirm your age"]):
-                console.print("[yellow]⚠️ Giriş/Bot doğrulaması gerekti, tarayıcı oturumuyla deneniyor...[/yellow]")
-                recovered = False
-                for b in ['chrome', 'edge', 'brave', 'firefox', 'opera']:
-                    try:
-                        download_result, ydl = run_download(cookies_browser=b)
-                        recovered = True
-                        break
-                    except Exception:
-                        continue
-                if not recovered:
-                    raise de
-            else:
-                raise de
-                
-        if not download_result:
-            console.print("[bold red]❌ Video bilgisi alınamadı. Link geçersiz veya video gizli olabilir.[/bold red]\n")
-            return
+        progress.start()
+        monitor_thread.start()
+        with yt_dlp.YoutubeDL(download_opts) as ydl:
+            download_result = ydl.extract_info(url, download=True)
             
-        title = download_result.get('title', 'Bilinmeyen Video')
-        uploader = download_result.get('uploader') or download_result.get('channel') or download_result.get('creator') or 'Bilinmiyor'
-        duration = format_duration(download_result.get('duration'))
-        resolution = download_result.get('resolution') or f"{download_result.get('width', '?')}x{download_result.get('height', '?')}"
-        
+        stop_monitor.set()
+        progress.update(task_id, status="[bold green]✓ Tamamlandı[/bold green]")
+        progress.stop()
+
         if 'requested_downloads' in download_result and download_result['requested_downloads']:
             saved_file_name = download_result['requested_downloads'][0].get('filepath', '')
         else:
@@ -406,7 +662,9 @@ def download_single_video(url: str):
         console.print("\n[bold green]════════════════════════════════════════════════════════════[/bold green]")
         console.print("[bold green]✓ TEBRİKLER! Video Başarıyla İndirildi! 🎉[/bold green]")
         console.print(f"[bold white]Başlık:[/bold white] [bold yellow]{title}[/bold yellow]")
-        console.print(f"[bold white]Kanal / Sahip:[/bold white] [white]{uploader}[/white] • [bold white]Süre:[/bold white] [white]{duration}[/white] • [bold white]Çözünürlük:[/bold white] [cyan]{resolution}[/cyan]")
+        if parsed_range:
+            console.print(f"[bold white]İndirilen Kesit:[/bold white] [bold cyan]{format_duration(parsed_range[0])} ➔ {format_duration(parsed_range[1])}[/bold cyan]")
+        console.print(f"[bold white]Kanal / Sahip:[/bold white] [white]{uploader}[/white] • [bold white]Süre:[/bold white] [white]{duration_str}[/white] • [bold white]Çözünürlük:[/bold white] [cyan]{resolution}[/cyan]")
         if saved_file_name and os.path.exists(saved_file_name):
             file_size_mb = os.path.getsize(saved_file_name) / (1024 * 1024)
             console.print(f"[bold white]Dosya:[/bold white] [cyan]{os.path.basename(saved_file_name)}[/cyan] ({file_size_mb:.2f} MB)")
@@ -415,6 +673,28 @@ def download_single_video(url: str):
             console.print(f"[bold white]Konum:[/bold white] [cyan]{DOWNLOAD_DIR}[/cyan]")
         console.print("[bold green]════════════════════════════════════════════════════════════[/bold green]\n")
 
+    except KeyboardInterrupt:
+        stop_monitor.set()
+        if progress:
+            try:
+                progress.stop()
+            except Exception:
+                pass
+        console.print("\n\n[bold yellow]⛔ İndirme işlemi kullanıcı tarafından iptal edildi.[/bold yellow]")
+        # Geçici indirilen .part veya .ytdl dosyalarını temizle
+        try:
+            time.sleep(0.3)
+            for d in [DOWNLOAD_DIR, TEMP_DIR]:
+                for f in list(d.glob("*.part")) + list(d.glob("*.ytdl")):
+                    try:
+                        if f.is_file():
+                            f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        console.print("[dim]Geçici dosyalar temizlendi. Yeni indirme yapabilirsiniz.[/dim]\n")
+        return
     except yt_dlp.utils.DownloadError as de:
         err_msg = str(de)
         console.print(f"\n[bold red]❌ İndirme Hatası:[/bold red] {err_msg}")
@@ -500,23 +780,30 @@ def download_multiple_videos(urls: list[str]):
             except Exception:
                 multi_progress.update(task_id, status="[bold red]❌ Hata[/bold red]", completed=100)
     
-    with multi_progress:
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            list(executor.map(worker, urls))
-            
-    console.print("\n[bold green]✓ Tüm videolar başarıyla indirildi ve Masaüstüne kaydedildi.[/bold green]\n")
+    try:
+        with multi_progress:
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                list(executor.map(worker, urls))
+                
+        console.print("\n[bold green]✓ Tüm videolar başarıyla indirildi ve Masaüstüne kaydedildi.[/bold green]\n")
+    except KeyboardInterrupt:
+        console.print("\n\n[bold yellow]⛔ Çoklu indirme işlemi iptal edildi.[/bold yellow]\n")
+        return
 
 def process_input(user_input: str):
-    """Kullanıcının girdiği komut veya linkleri işler."""
-    urls = [u.strip() for u in user_input.split() if u.strip()]
-    valid_urls = [u for u in urls if u.startswith("http://") or u.startswith("https://") or "www." in u]
+    """Kullanıcının girdiği komut, link veya zaman aralığını işler."""
+    tokens = [u.strip() for u in user_input.split() if u.strip()]
+    valid_urls = [u for u in tokens if u.startswith("http://") or u.startswith("https://") or "www." in u]
     
     if not valid_urls:
         console.print("[bold red]❌ Geçerli bir video linki bulunamadı! Lütfen http:// veya https:// ile başlayan bir link yapıştırın.[/bold red]\n")
         return
     
     if len(valid_urls) == 1:
-        download_single_video(valid_urls[0])
+        url = valid_urls[0]
+        other_tokens = [t for t in tokens if t != url]
+        time_range_str = " ".join(other_tokens).strip() if other_tokens else None
+        download_single_video(url, time_range_input=time_range_str)
     else:
         download_multiple_videos(valid_urls)
 
@@ -529,7 +816,10 @@ def main():
         valid_urls = [u for u in args if u.startswith("http://") or u.startswith("https://") or "www." in u]
         if valid_urls:
             if len(valid_urls) == 1:
-                download_single_video(valid_urls[0])
+                url = valid_urls[0]
+                other_args = [a for a in args if a != url]
+                time_range_str = " ".join(other_args).strip() if other_args else None
+                download_single_video(url, time_range_input=time_range_str)
             else:
                 download_multiple_videos(valid_urls)
             return

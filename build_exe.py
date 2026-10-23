@@ -41,6 +41,13 @@ def build(onefile=True):
     print(f"🚀 MP4 Downloader - EXE Derleyici [{mode_str}]")
     print("=" * 60)
     
+    # Başlamadan önce önceki kalıntıları tamamen temizle
+    for p in [BASE_DIR / "build", BASE_DIR / "dist", BASE_DIR / "orkunfb.spec"]:
+        if p.is_dir():
+            shutil.rmtree(p, ignore_errors=True)
+        elif p.is_file():
+            p.unlink(missing_ok=True)
+            
     icon_path = BASE_DIR / "assets" / "icon.ico"
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -52,6 +59,7 @@ def build(onefile=True):
         "--collect-all", "rich",
         "--collect-all", "yt_dlp",
         "--collect-all", "curl_cffi",
+        "--collect-all", "imageio_ffmpeg",
     ]
     
     if icon_path.exists():
@@ -82,6 +90,16 @@ def build(onefile=True):
                     pass
             shutil.move(str(dist_exe), str(target_exe))
             print(f"\n✓ Başarılı! Tek dosya EXE oluşturuldu: {target_exe} ({target_exe.stat().st_size / (1024*1024):.2f} MB)")
+            
+            # WindowsApps içindeki global komutu da otomatik güncelle
+            apps_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WindowsApps"
+            app_exe = apps_dir / "orkunfb.exe"
+            if apps_dir.exists():
+                try:
+                    shutil.copy2(str(target_exe), str(app_exe))
+                    print(f"✓ Global 'orkunfb' komutu güncellendi: {app_exe}")
+                except Exception as e:
+                    print(f"⚠️ Global komut kopyalanamadı: {e}")
     else:
         dist_folder = dist_dir / "orkunfb"
         target_folder = BASE_DIR / "orkunfb_app"

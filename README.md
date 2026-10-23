@@ -1,86 +1,127 @@
 <div align="center">
 
-# 🎬 MP4 Downloader (Tüm Platformlar Video İndirici)
+# 🎬 MP4 Downloader (Tüm Platformlar Video & Kesit İndirici)
 
-<img src="assets/obito.jpg" width="220" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);" />
+<img src="assets/obito.jpg" width="200" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);" />
 
-**YouTube • TikTok • Twitter (X) • Instagram • 1000+ Web Sitesi**  
-*Eşzamanlı Çoklu İndirme & En Yüksek Kalite MP4*
+**YouTube • Twitch • TikTok • Twitter (X) • Instagram • Anime/Film Siteleri & M3U8**  
+*Sıfır CPU Yükü • Ultra Hızlı Kesit Alma • En Yüksek Kalite MP4 Otomatik Birleştirme*
 
 ---
 
 </div>
 
-## 🚀 Çalıştırma
+## 🟢 GitHub'ı İlk Defa Kullananlar İçin 4 Adımda Kurulum
 
-WinRAR veya ZIP ile indirip çıkardıktan sonra terminalde klasörün içindeyken:
+Hiç kodlama veya GitHub bilmeseniz bile 1 dakikada kurup çalıştırabilirsiniz:
 
+### 1. Adım: Dosyaları İndirin
+1. Bu sayfanın sağ üst tarafındaki yeşil **`<> Code`** butonuna tıklayın.
+2. Açılan menüden en alttaki **`Download ZIP`** seçeneğine basın ve indirin.
+3. İnen ZIP (veya RAR) dosyasına sağ tıklayıp **"Buraya Ayıkla"** / **"Tümünü Ayıkla"** diyerek klasöre çıkartın.
+
+---
+
+### ⚡ EN KOLAY YOL (Tek Tıkla Başlat):
+Klasörü ayıkladıktan sonra içindeki **`baslat.bat`** dosyasına çift tıklayın!  
+Gereksinimleri otomatik olarak kontrol eder, eksikleri yükler ve programı hemen açar.
+
+---
+
+### Veya Manuel Kurulum (Terminal İle):
+
+#### 2. Adım: Klasörün İçinde Terminal Açın
+1. Çıkardığınız proje klasörünün içine girin (`downloader.py` dosyasını gördüğünüz yer).
+2. Klasörün en üstündeki **dosya yolu / adres çubuğuna** (klasör adının yazdığı boş yere) sol tıklayın.
+3. Oraya küçük harflerle **`cmd`** yazıp klavyeden **Enter** tuşuna basın.  
+*(Siyah terminal penceresi doğrudan klasörün içinde açılır).*
+
+> 💡 **Python Gereksinimi:**  
+> Bilgisayarınızda Python yüklü değilse [python.org](https://www.python.org/downloads/) adresinden 1 dakikada kurabilirsiniz. Kurulum ekranında en alttaki **`Add python.exe to PATH`** kutucuğunu işaretlemeyi unutmayın!
+
+---
+
+### 3. Adım: Gereksinimleri Yükleyin
+Açılan siyah pencereye şu komutu yapıştırın ve **Enter**'a basın:
 ```bash
 pip install -r requirements.txt
+```
+*(Gerekli kütüphaneler birkaç saniye içinde otomatik kurulacaktır).*
+
+---
+
+### 4. Adım: Programı Başlatın
+Aynı pencereye şunu yazıp **Enter**'a basın:
+```bash
 python downloader.py
 ```
+Programınız şık ve Türkçe arayüzüyle anında açılacaktır! 🎉
 
-Global komut olarak kullanmak isterseniz:
+---
+
+### 💡 (İsteğe Bağlı) Bilgisayarın Her Yerinden Tek Komutla Çalıştırma
+Klasörün içindeyken bir defaya mahsus şu komutu çalıştırırsanız:
 ```bash
 pip install .
 ```
-*(Kurduktan sonra bilgisayarın her yerinden `orkunfb indir` yazarak çalıştırabilirsiniz)*
-
----
-
-## ⚡ Kullanım
-
+Artık bilgisayarınızda nerede olursanız olun (Masaüstü, Belgeler vb. fark etmeksizin) terminale sadece:
 ```bash
-orkunfb indir
+orkunfb
 ```
-*(veya `python downloader.py`)*
-
-Doğrudan link ile indirmek için:
-```bash
-orkunfb indir https://youtube.com/watch?v=... https://tiktok.com/...
-```
+yazarak programı doğrudan başlatabilirsiniz!
 
 ---
 
-## 🌟 Özellikler
+## ⚡ Kullanım Rehberi
 
-1. **⚡ Ultra Hızlı Başlangıç (0.04s):** Gömülü ve optimize ANSI görsel motoru sayesinde sıfır bekleme ile anında açılır.
-2. **🎬 Şık & Donmayan Terminal Arayüzü:** 16 FPS hız sınırlamalı akıcı ilerleme çubukları ile CPU ve konsol kilitlenmeleri önlenir.
-3. **⚡ Eşzamanlı Çoklu İndirme (Multi-threading):** Aynı anda birden fazla video linki atarak paralel indirme yapabilme.
-4. **🌍 Global Komut (`orkunfb indir`):** `cd` yazmadan doğrudan her yerden başlatabilme.
-5. **📁 Doğrudan Masaüstü Kaydı:** İndirilen MP4 videoları doğrudan **Masaüstünüze** kaydedilir.
-6. **💬 Otomatik Türkçe Altyazı Gömme:** Altyazılı videolarda Türkçe altyazıyı otomatik MP4 içine gömer.
+Program açıldığında indirmek istediğiniz videonun linkini yapıştırıp **Enter**'a basın.
+
+### 1. Standart İndirme (Tüm Video)
+- Linki yapıştırdıktan sonra seçeneklerden `[2] Videonun Tamamını İndir` seçebilir veya doğrudan `Enter`'a basabilirsiniz.
+- Video sunulan **en yüksek kalitede (4K, 2K, 1080p60fps vb.)** ses ve görüntüsü birleştirilmiş tek bir `.mp4` olarak doğrudan **Masaüstünüze** iner.
+
+### 2. ✂️ Zaman Aralığı (Kesit) İndirme
+4-5 saatlik uzun bir yayın veya filmden sadece istediğiniz dakikaları indirmek için seçeneklerden `[1]` seçin ve aralığı yazın:
+- Dakika bazlı: `25dk 48dk` veya `10:00-25:00`
+- Saat bazlı: `2-3` veya `01:00:00-02:00:00`
+- Tek satırda linkle birlikte: `orkunfb indir https://site.com/yayin.m3u8 25dk 48dk`
+
+> ⚡ **Sıfır CPU Yükü:** Video kare kare tekrar işlenmez (renderlanmaz). **Stream Copy** teknolojisi sayesinde işlemcinizi kasmadan (%0 CPU), fan açtırmadan orijinal stüdyo kalitesinde saniyeler içinde kesilip indirilir.
+
+### 3. 🎬 Anime, Dizi ve Film Sitelerinden İndirme (F12 Taktiği)
+1. Tarayıcıda videoyu açın, klavyeden **F12** tuşuna basıp açılan pencerede **Ağ (Network)** sekmesine gelin.
+2. Filtre kutusuna **`m3u8`** yazın ve videoyu 1-2 saniye oynatın.
+3. Listede beliren `master.m3u8` linkine sağ tıklayıp bağlantıyı kopyalayın.
+4. Programa yapıştırın; video otomatik olarak en yüksek kalitede MP4 olarak inecektir!
+
+### 4. ⛔ İndirmeyi İptal Etme
+- İndirme veya kesme esnasında vazgeçerseniz istediğiniz an **`Ctrl + C`** tuşlarına basabilirsiniz.
+- Program indirmeyi durdurur ve arkada kalan yarım geçici dosyaları otomatik olarak temizler.
 
 ---
 
-## 🔨 Bağımsız EXE Derleme
+## 🌟 Öne Çıkan Özellikler
 
-Kendi bilgisayarınızda taşınabilir EXE üretmek için:
-
-```bash
-# Tek dosya bağımsız EXE üretir:
-python build_exe.py
-
-# Veya anında (0.2s) açılan klasör modu üretir:
-python build_exe.py --dir
-```
+- **0 CPU & Düşük Sistem Dostu:** Özel Windows öncelik motoru ve 64 KB bellek tamponu sayesinde 10 yıllık eski bilgisayarlarda dahi tarayıcıyı, fareyi veya sistemi asla dondurmaz.
+- **Canlı İlerleme & Hız Monitörü:** Kesit alırken veya indirirken `✂️ Kesit İndiriliyor • 45.2 MB • 8.4 MB/s` şeklinde anlık durumu canlı gösterir.
+- **Tek Tıkla Masaüstü:** Tüm indirilen MP4 dosyaları doğrudan Masaüstünüze tertemiz kaydedilir.
+- **Gizlilik:** İndirdiğiniz hiçbir video, bağlantı veya kişisel bilgisayar bilginiz internete veya GitHub'a iletilmez, her şey tamamen yerel ve cihazınızda çalışır.
 
 ---
 
-## 📌 Kısayollar
+## 📌 Program İçi Kısayollar
 
-- **Video İndirme:** Link(ler)i yapıştırıp `Enter`'a basın.
-- **Masaüstünü Açma:** `klasor` veya `open`
+- **Masaüstü Klasörünü Açma:** `klasor` veya `open`
 - **Ekranı Temizleme:** `cls` veya `temizle`
-- **Yardım & Anime/Film Rehberi:** `yardim`
+- **Rehberi Gösterme:** `yardim`
 - **Çıkış:** `q` veya `cikis`
 
 ---
 
-## 🛠️ Desteklenen Platformlar
-- **YouTube** (Shorts, Videolar, Müzikler - En yüksek çözünürlük & Ses birleştirme)
-- **TikTok** (Filigransız / HD)
-- **Instagram** (Reels, Post, Hikaye)
-- **Twitter / X** (Tüm video paylaşımları)
-- **Facebook, Reddit, Twitch, Pinterest, Anime ve Dizi/Film Siteleri** ve diğer 1000+ site.
+## 🔨 Kendi Bağımsız (.EXE) Dosyanızı Üretme
 
+Python'a ihtiyaç duymadan çift tıklayıp açılacak tek parça bir EXE dosyası üretmek isterseniz terminalde:
+```bash
+python build_exe.py
+```
+komutunu çalıştırmanız yeterlidir.

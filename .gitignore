@@ -10,11 +10,16 @@ venv/
 env/
 ENV/
 
-# Medya Dosyaları
+# Medya ve İndirilen Dosyalar (Kişisel hiçbir video git'e gitmez)
 *.mp4
 *.m4a
 *.webm
 *.mkv
+*.ts
+*.part
+*.ytdl
+*.temp
+test_logger.mp4
 indirilenler/
 
 # Sistem ve Editör
@@ -23,10 +28,16 @@ indirilenler/
 *.log
 .DS_Store
 Thumbs.db
+desktop.ini
+*.bak
+.env
 
-# Build ve Exe
+# Build, Paket ve Exe Dosyaları
 build/
 dist/
 *.spec
 *.exe
 orkunfb_app/
+*.egg-info/
+mp4_downloader.egg-info/
+
