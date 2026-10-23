@@ -542,6 +542,12 @@ def download_single_video(url: str, time_range_input: str = None):
             f"[dim](Süre: {diff_str})[/dim]\n"
         )
         console.print("[dim]⚡ [bold green]Hızlı & 0 CPU Yükü:[/bold green] Kesit re-encode edilmeden doğrudan akıştan kesilerek indiriliyor.[/dim]\n")
+        if start_sec > 0:
+            console.print(
+                f"[dim]ℹ️ [bold yellow]Akış Notu:[/bold yellow] Kesit {format_duration(start_sec)} noktasından başladığı için, "
+                f"program önce bu dakikaya kadar olan akışı hızla tarar. "
+                f"O noktaya ulaşıldığında dosya doğrudan diske yazılmaya başlar.[/dim]\n"
+            )
     else:
         console.print(f"[bold green]⬇ Videonun tamamı indiriliyor...[/bold green] [dim]({duration_str})[/dim]\n")
 
@@ -552,11 +558,50 @@ def download_single_video(url: str, time_range_input: str = None):
     short_title = clean_title if len(clean_title) <= 25 else clean_title[:22] + "..."
     status_label = "✂️ Kesit İndiriliyor" if parsed_range else "⬇ İndiriliyor"
 
+    # Tahmini dosya boyutu (MB) hesaplama (çubuğun dolması ve yüzde gösterilmesi için)
+    est_total_mb = None
+    target_duration = total_duration
+    if parsed_range:
+        s_s, e_s = parsed_range
+        if e_s != float('inf'):
+            target_duration = e_s - s_s
+        elif total_duration:
+            target_duration = total_duration - s_s
+
+    tbr = video_info.get('tbr') or 0
+    if not tbr and 'formats' in video_info:
+        for f in video_info.get('formats', []):
+            if f.get('tbr'):
+                tbr = max(tbr, float(f['tbr']))
+            elif (f.get('vbr') or 0) + (f.get('abr') or 0) > tbr:
+                tbr = float((f.get('vbr') or 0) + (f.get('abr') or 0))
+
+    if tbr and target_duration and target_duration > 0:
+        est_total_mb = (target_duration * tbr * 1000) / (8 * 1024 * 1024)
+    elif video_info.get('filesize'):
+        full_mb = video_info['filesize'] / (1024 * 1024)
+        if parsed_range and total_duration:
+            est_total_mb = full_mb * (target_duration / total_duration)
+        else:
+            est_total_mb = full_mb
+    elif video_info.get('filesize_approx'):
+        full_mb = video_info['filesize_approx'] / (1024 * 1024)
+        if parsed_range and total_duration:
+            est_total_mb = full_mb * (target_duration / total_duration)
+        else:
+            est_total_mb = full_mb
+    elif target_duration and target_duration > 0:
+        h = video_info.get('height') or 1080
+        default_kbps = 6500 if h >= 1080 else (3000 if h >= 720 else 1500)
+        est_total_mb = (target_duration * default_kbps * 1000) / (8 * 1024 * 1024)
+
     progress = Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]{task.fields[status]}", justify="left"),
         TextColumn("[bold blue]{task.fields[filename]}"),
         BarColumn(bar_width=18),
+        TextColumn("[bold green]{task.fields[percent_str]}"),
+        "•",
         TextColumn("[bold green]{task.fields[size_str]}"),
         "•",
         TextColumn("[bold yellow]{task.fields[speed_str]}"),
@@ -566,9 +611,11 @@ def download_single_video(url: str, time_range_input: str = None):
 
     task_id = progress.add_task(
         "download",
-        total=None,
+        total=100.0 if est_total_mb else None,
+        completed=0.0,
         status=status_label,
         filename=short_title,
+        percent_str="0%" if est_total_mb else "",
         size_str="0.0 MB",
         speed_str="Bağlanıyor..."
     )
@@ -579,8 +626,10 @@ def download_single_video(url: str, time_range_input: str = None):
     last_t = [time.time()]
     last_growth_time = [time.time()]
     last_path = [object()]
+    smoothed_speed = [0.0]
 
     def file_monitor():
+        nonlocal est_total_mb
         while not stop_monitor.is_set():
             time.sleep(0.4)
             try:
@@ -592,24 +641,67 @@ def download_single_video(url: str, time_range_input: str = None):
                 cur_mb = latest_size / (1024 * 1024)
 
                 if current_path != last_path[0]:
-                    speed_mb = 0.0
                     last_path[0] = current_path
                     last_sz[0] = cur_mb
                     last_growth_time[0] = now
                 else:
                     dt = now - last_t[0]
-                    speed_mb = max(0.0, (cur_mb - last_sz[0]) / dt) if dt > 0 else 0.0
-                    if cur_mb > last_sz[0]:
+                    if dt > 0 and cur_mb > last_sz[0]:
+                        inst_speed = (cur_mb - last_sz[0]) / dt
+                        if smoothed_speed[0] <= 0:
+                            smoothed_speed[0] = inst_speed
+                        else:
+                            smoothed_speed[0] = 0.6 * smoothed_speed[0] + 0.4 * inst_speed
                         last_growth_time[0] = now
                     last_sz[0] = cur_mb
 
                 last_t[0] = now
-                progress.update(
-                    task_id,
-                    size_str=f"{cur_mb:.1f} MB",
-                    speed_str=_format_download_rate(speed_mb, now - last_growth_time[0]),
-                    status=status_label
-                )
+
+                # Eğer başlangıç süresi varsa ve henüz diske veri yazılmadıysa (FFmpeg akışı ileri sarıyorsa)
+                is_seeking = bool(parsed_range and parsed_range[0] > 0 and cur_mb < 0.2)
+                if is_seeking:
+                    start_label = format_duration(parsed_range[0])
+                    elapsed = int(now - download_started_at)
+                    progress.update(
+                        task_id,
+                        total=100.0,
+                        completed=0.0,
+                        percent_str="--%",
+                        size_str="0.0 MB",
+                        speed_str=f"Ağdan taranıyor ({elapsed} sn)",
+                        status=f"[bold yellow]⏩ {start_label} Sarılıyor...[/bold yellow]"
+                    )
+                else:
+                    if est_total_mb and cur_mb > est_total_mb:
+                        est_total_mb = cur_mb * 1.05
+
+                    if est_total_mb and est_total_mb > 0:
+                        pct = min(99.0, (cur_mb / est_total_mb) * 100)
+                        pct_text = f"{pct:.0f}%"
+                        sz_text = f"{cur_mb:.1f} / {est_total_mb:.1f} MB"
+                        comp_val = pct
+                    else:
+                        pct_text = ""
+                        sz_text = f"{cur_mb:.1f} MB"
+                        comp_val = 0.0
+
+                    idle = now - last_growth_time[0]
+                    if idle >= 4:
+                        spd_text = f"Veri bekleniyor ({int(idle)} sn)"
+                    elif smoothed_speed[0] > 0:
+                        spd_text = f"{smoothed_speed[0]:.1f} MB/s"
+                    else:
+                        spd_text = "İndiriliyor..."
+
+                    progress.update(
+                        task_id,
+                        total=100.0 if est_total_mb else None,
+                        completed=comp_val if est_total_mb else None,
+                        percent_str=pct_text,
+                        size_str=sz_text,
+                        speed_str=spd_text,
+                        status=status_label
+                    )
             except Exception:
                 pass
 
@@ -620,18 +712,21 @@ def download_single_video(url: str, time_range_input: str = None):
             tot = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
             done = d.get('downloaded_bytes', 0)
             cur_mb = done / (1024 * 1024)
+            tot_mb = tot / (1024 * 1024) if tot > 0 else 0
             spd = (d.get('speed') or 0) / (1024 * 1024)
+            pct = (done / tot * 100) if tot > 0 else 0
             update = {
-                'total': tot if tot > 0 else None,
-                'completed': done if tot > 0 else None,
-                'size_str': f"{cur_mb:.1f} MB",
+                'total': 100.0 if tot > 0 else None,
+                'completed': pct if tot > 0 else None,
+                'percent_str': f"{pct:.0f}%" if tot > 0 else "",
+                'size_str': f"{cur_mb:.1f} / {tot_mb:.1f} MB" if tot > 0 else f"{cur_mb:.1f} MB",
                 'status': status_label,
             }
             if spd > 0:
                 update['speed_str'] = f"{spd:.1f} MB/s"
             progress.update(task_id, **update)
         elif d['status'] == 'finished':
-            progress.update(task_id, status="[bold green]✓ Birleştiriliyor[/bold green]")
+            progress.update(task_id, percent_str="100%", status="[bold green]✓ Birleştiriliyor[/bold green]")
 
     download_opts = build_ydl_options(
         url,
