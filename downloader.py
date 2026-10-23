@@ -361,11 +361,10 @@ def build_ydl_options(url: str, progress_hook=None, ffmpeg_exe: str = None, brow
         'postprocessor_args': {
             'Merger': ['-threads', '2', '-c:v', 'copy', '-c:a', 'aac']
         },
-        # YouTube için çoklu istemci fallback zinciri (Tek istemci takılırsa diğerine geçer)
+        # YouTube için çoklu istemci fallback zinciri
         'extractor_args': {
             'youtube': {
-                'player_client': ['default', 'web', 'android', 'ios', 'mweb'],
-                'player_skip': ['configs', 'webpage'],
+                'player_client': ['default', 'web', 'tv_embedded'],
             },
             'youtubetab': {
                 'skip': ['authcheck'],
