@@ -24,7 +24,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [1/2] Gerekli kutuphaneler yukleniyor / kontrol ediliyor...
-pip install -r requirements.txt --quiet --disable-pip-version-check
+python -m pip install -r requirements.txt --quiet --disable-pip-version-check
 
 echo [2/2] Program baslatiliyor...
 cls
