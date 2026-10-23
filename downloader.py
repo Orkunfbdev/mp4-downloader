@@ -30,7 +30,6 @@ try:
     from rich.prompt import Prompt
     from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn, FileSizeColumn, SpinnerColumn
     from rich.text import Text
-    from rich.align import Align
 except ImportError:
     print("\n[!] Gerekli kütüphaneler eksik. Lütfen 'pip install -r requirements.txt' komutunu çalıştırın.\n")
     sys.exit(1)
@@ -104,13 +103,11 @@ def _resolve_ffmpeg():
     _CACHED_FFMPEG_PATH = ""
 
 def get_ffmpeg_path():
-    global _CACHED_FFMPEG_PATH
     if _CACHED_FFMPEG_PATH is None:
         _resolve_ffmpeg()
     return _CACHED_FFMPEG_PATH if _CACHED_FFMPEG_PATH else None
 
 def start_background_ffmpeg_check():
-    import threading
     t = threading.Thread(target=_resolve_ffmpeg, daemon=True)
     t.start()
 
