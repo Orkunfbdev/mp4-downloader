@@ -28,13 +28,15 @@ Gereksinimleri otomatik olarak kontrol eder, eksikleri yükler ve programı heme
 
 ---
 
-### Veya Manuel Kurulum (Terminal İle):
+### Veya Manuel Kurulum (Terminal / PowerShell İle):
 
 #### 2. Adım: Klasörün İçinde Terminal Açın
-1. Çıkardığınız proje klasörünün içine girin (`downloader.py` dosyasını gördüğünüz yer).
-2. Klasörün en üstündeki **dosya yolu / adres çubuğuna** (klasör adının yazdığı boş yere) sol tıklayın.
-3. Oraya küçük harflerle **`cmd`** yazıp klavyeden **Enter** tuşuna basın.  
-*(Siyah terminal penceresi doğrudan klasörün içinde açılır).*
+İki yöntemden birini kullanabilirsiniz:
+- **Yöntem 1 (Adres Çubuğu):** Çıkardığınız proje klasörünün içine girin (`downloader.py` dosyasını gördüğünüz yer). Üstteki adres çubuğuna sol tıklayıp **`cmd`** yazın ve **Enter**'a basın.
+- **Yöntem 2 (CD Komutu):** Terminal veya PowerShell açıp klasörün yoluna gidin:
+  ```powershell
+  cd "C:\Users\KullaniciAdiniz\Desktop\mp4-downloader"
+  ```
 
 > 💡 **Python Gereksinimi:**  
 > Bilgisayarınızda Python yüklü değilse [python.org](https://www.python.org/downloads/) adresinden 1 dakikada kurabilirsiniz. Kurulum ekranında en alttaki **`Add python.exe to PATH`** kutucuğunu işaretlemeyi unutmayın!
@@ -42,9 +44,9 @@ Gereksinimleri otomatik olarak kontrol eder, eksikleri yükler ve programı heme
 ---
 
 ### 3. Adım: Gereksinimleri Yükleyin
-Açılan siyah pencereye şu komutu yapıştırın ve **Enter**'a basın:
+Terminalde `pip` bulunamadı hatası yaşamamak için en garanti komut:
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 *(Gerekli kütüphaneler birkaç saniye içinde otomatik kurulacaktır).*
 
